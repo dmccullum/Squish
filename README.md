@@ -10,7 +10,9 @@ Drop an image, a bunch of images, or a whole folder. Squish processes them accor
 
 - **File size** — squish each image to ~a target size or smaller (KB/MB).
 - **Dimensions** — max long side, max width, max height, or fit-within W×H. Images smaller than the limit are left alone.
-- **Format** — convert to JPEG, HEIC, or PNG.
+- **Format** — convert to JPEG or HEIC.
+
+Each control is a tile with quick-pick presets; choose **popovers + sliders** or **rotary dials** in Settings. Output is never upscaled, and a re-encode that would only grow a file keeps the original instead.
 
 ### Output placement
 - **Auto** (mirrors how the drop arrived):
@@ -20,8 +22,10 @@ Drop an image, a bunch of images, or a whole folder. Squish processes them accor
 - **Choose…** — pick one destination folder for everything.
 
 ## How it works
-- Reads anything ImageIO supports (incl. WebP); writes JPEG / HEIC / PNG.
-- **File-size targeting** binary-searches encoder quality for lossy formats, then downscales if the quality floor still overshoots. PNG is lossless, so its size targets are met by resizing (the UI says so).
+- Reads anything ImageIO supports (incl. WebP, PNG); writes JPEG / HEIC. Inputs that aren't already JPEG/HEIC convert to your **default format** (Settings → General).
+- **File-size targeting** binary-searches encoder quality, then downscales if the quality floor still overshoots.
+- **Batches** either hit the target per-image, or *match quality across the batch* (Settings) — the quality that lands the heaviest image on target is applied to all so they look consistent.
+- **Settings** (⌘,): default format, batch strategy, control style, plus editable **pixel-size** and **file-size** presets.
 - Batches run concurrently across CPU cores; failures are per-file and never abort the batch.
 
 ## Build & run
