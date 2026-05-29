@@ -20,6 +20,7 @@ final class JobRunner: ObservableObject {
         guard !isRunning else { return }
 
         let request = CompressionRequest(settings)
+        let strategy = settings.strategy
         let config = OutputConfig(settings)
         let sources = JobRunner.expand(input, fm: fm)
 
@@ -35,7 +36,7 @@ final class JobRunner: ObservableObject {
         revealRoot = planner.revealRoot
 
         let jobs: [Job] = sources.map { source in
-            let format = ImageCompressor.resolveFormat(source: source, request: request)
+            let format = ImageCompressor.resolveFormat(request: request)
             return Job(source: source, format: format, destination: planner.destination(for: source, format: format))
         }
 
@@ -48,7 +49,7 @@ final class JobRunner: ObservableObject {
         currentFile = ""
 
         Task.detached(priority: .userInitiated) {
-            let collected = await JobRunner.process(jobs: jobs, request: request) { done, total, name in
+            let collected = await JobRunner.process(jobs: jobs, request: request, strategy: strategy) { done, total, name in
                 await MainActor.run {
                     self.progress = Double(done) / Double(max(total, 1))
                     self.currentFile = name
@@ -83,9 +84,19 @@ final class JobRunner: ObservableObject {
     private nonisolated static func process(
         jobs: [Job],
         request: CompressionRequest,
+        strategy: CompressionStrategy,
         progress: @escaping @Sendable (Int, Int, String) async -> Void
     ) async -> [JobResult] {
         let total = jobs.count
+
+        // "Match quality across batch": find the quality that lands the largest
+        // (heaviest) image on target, then reuse it for everyone.
+        var overrideQuality: Double?
+        if strategy == .matchQuality, request.sizeTargetEnabled, jobs.count > 1,
+           let heaviest = jobs.max(by: { fileSize($0.source) < fileSize($1.source) }) {
+            overrideQuality = (try? ImageCompressor.compress(source: heaviest.source, request: request))?.qualityUsed
+        }
+
         let maxConcurrent = max(1, ProcessInfo.processInfo.activeProcessorCount)
         var collected: [JobResult] = []
         var index = 0
@@ -95,7 +106,7 @@ final class JobRunner: ObservableObject {
                 guard index < jobs.count else { return }
                 let job = jobs[index]
                 index += 1
-                group.addTask { processOne(job, request: request) }
+                group.addTask { processOne(job, request: request, overrideQuality: overrideQuality) }
             }
             for _ in 0..<min(maxConcurrent, jobs.count) { addNext() }
             for await result in group {
@@ -108,10 +119,10 @@ final class JobRunner: ObservableObject {
         return collected.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
-    private nonisolated static func processOne(_ job: Job, request: CompressionRequest) -> JobResult {
+    private nonisolated static func processOne(_ job: Job, request: CompressionRequest, overrideQuality: Double?) -> JobResult {
         let fm = FileManager.default
         var result = JobResult(source: job.source, status: .success)
-        result.originalBytes = (try? job.source.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
+        result.originalBytes = fileSize(job.source)
 
         guard let dest = job.destination else {
             result.status = .failed("No output location.")
@@ -119,19 +130,42 @@ final class JobRunner: ObservableObject {
         }
 
         do {
-            let output = try ImageCompressor.compress(source: job.source, request: request)
+            let output = try ImageCompressor.compress(source: job.source, request: request, overrideQuality: overrideQuality)
             try fm.createDirectory(at: dest.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try output.data.write(to: dest, options: .atomic)
+
+            let unchangedDimensions = output.finalSize == output.originalSize
+            let wouldGrow = output.data.count >= result.originalBytes && result.originalBytes > 0
+
+            if wouldGrow, unchangedDimensions, sameFormat(job.source, output.format) {
+                // Re-encoding would only bloat it — keep the original bytes.
+                try Data(contentsOf: job.source).write(to: dest, options: .atomic)
+                result.finalBytes = result.originalBytes
+                result.note = "Already optimized — kept original."
+            } else {
+                try output.data.write(to: dest, options: .atomic)
+                result.finalBytes = output.data.count
+                result.note = output.note
+            }
             result.output = dest
-            result.finalBytes = output.data.count
             result.originalSize = output.originalSize
             result.finalSize = output.finalSize
-            result.note = output.note
             result.status = .success
         } catch {
             result.status = .failed(error.localizedDescription)
         }
         return result
+    }
+
+    private nonisolated static func fileSize(_ url: URL) -> Int {
+        (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
+    }
+
+    private nonisolated static func sameFormat(_ url: URL, _ format: OutputFormat) -> Bool {
+        let ext = url.pathExtension.lowercased()
+        switch format {
+        case .jpeg: return ext == "jpg" || ext == "jpeg"
+        case .heic: return ext == "heic" || ext == "heif"
+        }
     }
 
     // MARK: - Expansion

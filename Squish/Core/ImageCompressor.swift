@@ -16,6 +16,7 @@ struct CompressionRequest {
     var fitHeight: Int
     var formatEnabled: Bool
     var format: OutputFormat
+    var defaultFormat: OutputFormat
 
     @MainActor init(_ s: SquishSettings) {
         sizeTargetEnabled = s.sizeTargetEnabled
@@ -29,6 +30,7 @@ struct CompressionRequest {
         fitHeight = s.fitHeight
         formatEnabled = s.formatEnabled
         format = s.format
+        defaultFormat = s.defaultFormat
     }
 }
 
@@ -37,6 +39,7 @@ struct CompressionOutput {
     var format: OutputFormat
     var originalSize: CGSize
     var finalSize: CGSize
+    var qualityUsed: Double
     var note: String?
 }
 
@@ -58,20 +61,16 @@ enum ImageCompressor {
     private static let qualityIterations = 8
     private static let maxDownscaleSteps = 6
     private static let downscaleFactor: CGFloat = 0.85
-    private static let defaultQuality = 0.85
+    static let defaultQuality = 0.85
 
-    /// The concrete output format for a source: explicit choice, else keep the
-    /// original when it's natively encodable, else fall back to JPEG.
-    static func resolveFormat(source: URL, request: CompressionRequest) -> OutputFormat {
-        if request.formatEnabled { return request.format }
-        switch source.pathExtension.lowercased() {
-        case "png":          return .png
-        case "heic", "heif": return .heic
-        default:             return .jpeg
-        }
+    /// The concrete output format: explicit per-job choice, else the default.
+    static func resolveFormat(request: CompressionRequest) -> OutputFormat {
+        request.formatEnabled ? request.format : request.defaultFormat
     }
 
-    static func compress(source: URL, request: CompressionRequest) throws -> CompressionOutput {
+    /// Compress one image. If `overrideQuality` is given, that exact quality is
+    /// used (no size-target search) — used to keep a batch visually consistent.
+    static func compress(source: URL, request: CompressionRequest, overrideQuality: Double? = nil) throws -> CompressionOutput {
         guard let src = CGImageSourceCreateWithURL(source as CFURL, nil),
               CGImageSourceGetCount(src) > 0 else { throw CompressError.cannotRead }
 
@@ -92,99 +91,86 @@ enum ImageCompressor {
         }
 
         let originalSize = CGSize(width: decoded.width, height: decoded.height)
-        let format = resolveFormat(source: source, request: request)
+        let format = resolveFormat(request: request)
 
-        // Apply the dimension target up front.
+        // Apply the dimension target up front (never upscales).
         var working = decoded
         let target = targetSize(for: originalSize, request: request)
         if target != originalSize, let resized = resize(decoded, to: target) {
             working = resized
         }
 
-        let byteTarget: Int? = request.sizeTargetEnabled ? request.targetBytes : nil
-        var note: String?
+        // Fixed-quality path (batch consistency).
+        if let q = overrideQuality {
+            guard let data = encode(working, format: format, quality: q) else { throw CompressError.cannotEncode }
+            return CompressionOutput(data: data, format: format, originalSize: originalSize,
+                                     finalSize: CGSize(width: working.width, height: working.height),
+                                     qualityUsed: q, note: nil)
+        }
+
+        // No size target: encode at a high default quality.
+        guard request.sizeTargetEnabled else {
+            guard let data = encode(working, format: format, quality: defaultQuality) else { throw CompressError.cannotEncode }
+            return CompressionOutput(data: data, format: format, originalSize: originalSize,
+                                     finalSize: CGSize(width: working.width, height: working.height),
+                                     qualityUsed: defaultQuality, note: nil)
+        }
+
+        // Size target: search quality, downscaling if the floor still overshoots.
         var resultData: Data?
-
+        var resultQuality = 0.0
         for step in 0...maxDownscaleSteps {
+            let (data, quality, fits) = searchQuality(working, format: format, target: request.targetBytes)
             let longSide = CGFloat(max(working.width, working.height))
-
-            if format.isLossy {
-                if let byteTarget {
-                    let (data, fits) = bestQualityData(working, format: format, target: byteTarget)
-                    if fits || longSide <= minLongSide || step == maxDownscaleSteps {
-                        resultData = data
-                        break
-                    }
-                } else {
-                    resultData = encode(working, format: format, quality: defaultQuality)
-                    break
-                }
-            } else { // PNG — lossless, can only approach a target by resizing.
-                guard let data = encode(working, format: format, quality: nil) else {
-                    throw CompressError.cannotEncode
-                }
+            if fits || longSide <= minLongSide || step == maxDownscaleSteps {
                 resultData = data
-                if let byteTarget, data.count > byteTarget,
-                   longSide > minLongSide, step < maxDownscaleSteps {
-                    note = "PNG is lossless — resized to approach the target."
-                } else {
-                    break
-                }
-            }
-
-            // Still over target: downscale and try again.
-            if let smaller = resize(working, to: scaled(CGSize(width: working.width, height: working.height),
-                                                        by: downscaleFactor)) {
-                working = smaller
-            } else {
+                resultQuality = quality
                 break
             }
+            guard let smaller = resize(working, to: scaled(CGSize(width: working.width, height: working.height), by: downscaleFactor)) else {
+                resultData = data; resultQuality = quality; break
+            }
+            working = smaller
         }
 
         guard let data = resultData else { throw CompressError.cannotEncode }
-        return CompressionOutput(
-            data: data,
-            format: format,
-            originalSize: originalSize,
-            finalSize: CGSize(width: working.width, height: working.height),
-            note: note
-        )
+        return CompressionOutput(data: data, format: format, originalSize: originalSize,
+                                 finalSize: CGSize(width: working.width, height: working.height),
+                                 qualityUsed: resultQuality, note: nil)
     }
 
     // MARK: - Encoding
 
     /// Binary-searches quality for the highest setting whose encoded size fits
-    /// the target. Returns the chosen data and whether it actually fit.
-    private static func bestQualityData(_ image: CGImage, format: OutputFormat, target: Int) -> (Data, Bool) {
+    /// the target. Returns the chosen data, the quality, and whether it fit.
+    private static func searchQuality(_ image: CGImage, format: OutputFormat, target: Int) -> (Data, Double, Bool) {
         var lo = 0.0, hi = 1.0
-        var best: Data?
-        var smallest: Data?
+        var best: (Data, Double)?
+        var smallest: (Data, Double)?
 
         for _ in 0..<qualityIterations {
             let mid = (lo + hi) / 2
             guard let data = encode(image, format: format, quality: mid) else { break }
-            if smallest == nil || data.count < (smallest?.count ?? .max) { smallest = data }
+            if smallest == nil || data.count < smallest!.0.count { smallest = (data, mid) }
             if data.count <= target {
-                best = data
+                best = (data, mid)
                 lo = mid
             } else {
                 hi = mid
             }
         }
 
-        if let best { return (best, true) }
-        // Nothing fit; hand back the smallest we managed (caller may downscale).
-        let fallback = smallest ?? encode(image, format: format, quality: 0.0) ?? Data()
-        return (fallback, false)
+        if let best { return (best.0, best.1, true) }
+        let fallback = smallest ?? (encode(image, format: format, quality: 0.0) ?? Data(), 0.0)
+        return (fallback.0, fallback.1, false)
     }
 
-    private static func encode(_ image: CGImage, format: OutputFormat, quality: Double?) -> Data? {
+    private static func encode(_ image: CGImage, format: OutputFormat, quality: Double) -> Data? {
         let data = NSMutableData()
         guard let dest = CGImageDestinationCreateWithData(data, format.utType.identifier as CFString, 1, nil) else {
             return nil
         }
-        var options: [CFString: Any] = [:]
-        if let quality { options[kCGImageDestinationLossyCompressionQuality] = quality }
+        let options: [CFString: Any] = [kCGImageDestinationLossyCompressionQuality: quality]
         CGImageDestinationAddImage(dest, image, options as CFDictionary)
         guard CGImageDestinationFinalize(dest) else { return nil }
         return data as Data

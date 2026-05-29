@@ -10,12 +10,16 @@ struct SquishApp: App {
             ContentView()
                 .environmentObject(settings)
                 .environmentObject(runner)
-                .frame(minWidth: 440, idealWidth: 470, maxWidth: 640,
-                       minHeight: 580, idealHeight: 660, maxHeight: 900)
+                .frame(width: 680, height: 472)
         }
         .windowResizability(.contentSize)
         .commands {
             CommandGroup(replacing: .newItem) {}
+        }
+
+        Settings {
+            SquishSettingsView()
+                .environmentObject(settings)
         }
     }
 }

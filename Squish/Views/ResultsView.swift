@@ -125,6 +125,15 @@ private struct ResultRow: View {
                     .font(.callout.weight(.semibold).monospacedDigit())
                     .foregroundStyle(Color.accentColor)
             }
+            if let output = result.output {
+                Button {
+                    Platform.reveal([output])
+                } label: {
+                    Image(systemName: "magnifyingglass")
+                }
+                .buttonStyle(.borderless)
+                .help("Show in Finder")
+            }
         }
         .padding(.vertical, 2)
     }
