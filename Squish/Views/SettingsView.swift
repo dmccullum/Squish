@@ -36,16 +36,6 @@ private struct GeneralPane: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-
-            Section("Appearance") {
-                Picker("Controls", selection: $settings.controlStyle) {
-                    ForEach(ControlStyle.allCases) { Text($0.displayName).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                Text("How the three squish controls look on the main window.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            }
         }
         .formStyle(.grouped)
     }

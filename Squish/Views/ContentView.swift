@@ -11,6 +11,7 @@ struct ContentView: View {
     var body: some View {
         ZStack {
             Color(nsColor: .windowBackgroundColor).ignoresSafeArea()
+            backdrop.ignoresSafeArea()
 
             Group {
                 if runner.isRunning {
@@ -32,50 +33,68 @@ struct ContentView: View {
         }
     }
 
+    /// Soft colored light so the Liquid Glass tiles have something to refract.
+    private var backdrop: some View {
+        ZStack {
+            Circle().fill(Color.accentColor).frame(width: 340)
+                .blur(radius: 120).opacity(0.45).offset(x: -170, y: -130)
+            Circle().fill(Color(red: 0.30, green: 0.55, blue: 1.0)).frame(width: 300)
+                .blur(radius: 120).opacity(0.32).offset(x: 190, y: 70)
+            Circle().fill(Color(red: 1.0, green: 0.35, blue: 0.7)).frame(width: 260)
+                .blur(radius: 120).opacity(0.26).offset(x: 150, y: -160)
+        }
+    }
+
     // MARK: - Idle
 
     private var idleView: some View {
         VStack(spacing: 0) {
-            VStack(spacing: 16) {
+            VStack(spacing: 24) {
                 DropZoneView(isTargeted: isTargeted) { addFromPanel() }
                     .frame(height: 150)
                 ControlsView()
-                OutputRow()
             }
-            .padding(20)
+            .padding(.horizontal, 20)
+            .padding(.top, 26)
+            .padding(.bottom, 13)
 
             Spacer(minLength: 0)
             Divider()
-            actionFooter
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
+            bottomBar
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
                 .frame(maxWidth: .infinity)
                 .background(.bar)
         }
     }
 
+    private var bottomBar: some View {
+        HStack(spacing: 12) {
+            OutputLocationMenu()
+            Spacer(minLength: 8)
+            trailingControl
+        }
+    }
+
     @ViewBuilder
-    private var actionFooter: some View {
+    private var trailingControl: some View {
         if !settings.isActionable {
-            Label("Turn on a control above, then drop your images.", systemImage: "wand.and.stars")
+            Label("Turn on a control to start", systemImage: "wand.and.stars")
                 .font(.callout).foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity)
         } else if let pendingInput {
-            HStack {
+            HStack(spacing: 8) {
                 Button("Clear", role: .cancel) { self.pendingInput = nil }
                     .buttonStyle(.plain).foregroundStyle(.secondary)
-                Spacer()
                 Button {
                     runner.run(input: pendingInput, settings: settings)
                 } label: {
                     Label("Squish \(Self.describe(pendingInput))", systemImage: "bolt.fill")
                 }
-                .controlSize(.large).buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
+                .buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
             }
         } else {
-            Text("Ready — drop images to squish.")
+            Text("Drop images to squish")
                 .font(.callout).foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity)
         }
     }
 
@@ -129,47 +148,41 @@ struct ContentView: View {
     }
 }
 
-// MARK: - Output destination row
+// MARK: - Output location (bottom bar)
 
-private struct OutputRow: View {
+private struct OutputLocationMenu: View {
     @EnvironmentObject private var settings: SquishSettings
 
     var body: some View {
-        HStack(spacing: 10) {
-            HStack(spacing: 4) {
-                segment("Auto", "wand.and.stars", mode: .auto)
-                segment("Choose…", "folder", mode: .choose)
-            }
-            .padding(3)
-            .background(Capsule().fill(Color.primary.opacity(0.06)))
-
-            if settings.outputMode == .auto {
-                Text("Saved next to your originals")
-                    .font(.caption).foregroundStyle(.secondary)
-            } else {
-                Text(settings.chosenFolder?.path ?? "No folder chosen")
-                    .font(.caption).foregroundStyle(settings.chosenFolder == nil ? .secondary : .primary)
-                    .lineLimit(1).truncationMode(.middle)
-                Button("Choose…") {
-                    if let u = Platform.chooseFolder() { settings.chosenFolderPath = u.path }
+        HStack(spacing: 6) {
+            Text("Save to").font(.callout).foregroundStyle(.secondary)
+            Menu {
+                Button {
+                    settings.outputMode = .auto
+                } label: {
+                    Label("Auto — beside originals", systemImage: "wand.and.stars")
                 }
-                .controlSize(.small)
+                Button {
+                    if let url = Platform.chooseFolder() {
+                        settings.chosenFolderPath = url.path
+                        settings.outputMode = .choose
+                    }
+                } label: {
+                    Label(settings.chosenFolder == nil ? "Choose Folder…" : "Change Folder…",
+                          systemImage: "folder")
+                }
+            } label: {
+                Label(labelText, systemImage: settings.outputMode == .auto ? "wand.and.stars" : "folder")
             }
-            Spacer(minLength: 0)
+            .menuStyle(.borderlessButton)
+            .fixedSize()
         }
     }
 
-    private func segment(_ title: String, _ icon: String, mode: OutputMode) -> some View {
-        let selected = settings.outputMode == mode
-        return Button {
-            withAnimation(.snappy(duration: 0.15)) { settings.outputMode = mode }
-        } label: {
-            Label(title, systemImage: icon)
-                .font(.callout.weight(.medium))
-                .padding(.horizontal, 12).padding(.vertical, 5)
-                .background(Capsule().fill(selected ? Color.accentColor : Color.clear))
-                .foregroundStyle(selected ? .white : .primary)
+    private var labelText: String {
+        switch settings.outputMode {
+        case .auto:   return "Auto Location"
+        case .choose: return settings.chosenFolder?.lastPathComponent ?? "Choose Folder…"
         }
-        .buttonStyle(.plain)
     }
 }

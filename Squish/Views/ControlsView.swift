@@ -4,7 +4,7 @@ struct ControlsView: View {
     @EnvironmentObject private var settings: SquishSettings
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: 14) {
             SizeTile()
             DimensionTile()
             FormatTile()
@@ -15,16 +15,16 @@ struct ControlsView: View {
     }
 }
 
-// MARK: - Tile shell
+// MARK: - Glass tile shell
 
-private struct TileShell<Content: View>: View {
+private struct GlassTile<Content: View>: View {
     let icon: String
     let title: String
     @Binding var isOn: Bool
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 8) {
             HStack(spacing: 5) {
                 Image(systemName: icon).font(.system(size: 12, weight: .semibold))
                 Text(title).font(.subheadline.weight(.semibold))
@@ -39,35 +39,20 @@ private struct TileShell<Content: View>: View {
             Spacer(minLength: 0)
         }
         .padding(12)
-        .frame(maxWidth: .infinity, minHeight: 150, maxHeight: 150)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(isOn ? Color.accentColor.opacity(0.10) : Color.primary.opacity(0.05))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(isOn ? Color.accentColor.opacity(0.5) : .clear, lineWidth: 1.5)
-        )
+        .frame(maxWidth: .infinity, minHeight: 162, maxHeight: 162)
+        .glassCard(cornerRadius: 18, isOn: isOn)
     }
 }
 
-private struct ValueBadge: View {
-    let value: String
-    let caption: String
+/// Subtle "tap for options" affordance shown under a dial.
+private struct EditHint: View {
     var body: some View {
-        VStack(spacing: 1) {
-            Text(value)
-                .font(.system(.title2, design: .rounded).weight(.semibold))
-                .monospacedDigit()
-                .lineLimit(1).minimumScaleFactor(0.6)
-            Text(caption).font(.caption2).foregroundStyle(.secondary)
-            Image(systemName: "slider.horizontal.3")
-                .font(.caption2).foregroundStyle(.tertiary).padding(.top, 4)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 18)
-        .background(RoundedRectangle(cornerRadius: 11).fill(Color.primary.opacity(0.05)))
-        .contentShape(Rectangle())
+        Image(systemName: "slider.horizontal.3")
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 7).padding(.vertical, 3)
+            .background(Capsule().fill(.ultraThinMaterial))
+            .opacity(0.9)
     }
 }
 
@@ -91,27 +76,19 @@ private struct SizeTile: View {
     }
 
     var body: some View {
-        TileShell(icon: "scalemass", title: "File size", isOn: $settings.sizeTargetEnabled) {
-            if settings.controlStyle == .dial {
-                DialControl(value: bytes, range: 50_000...25_000_000, logScale: true,
+        GlassTile(icon: "scalemass", title: "File size", isOn: $settings.sizeTargetEnabled) {
+            ZStack(alignment: .bottom) {
+                DialControl(value: bytes, range: 50_000...100_000_000, logScale: true,
                             enabled: settings.sizeTargetEnabled,
                             format: { ByteFormat.string(Int($0)) })
-            } else {
-                Button { showPopover = true } label: {
-                    ValueBadge(value: valueText, caption: "target")
-                }
-                .buttonStyle(.plain)
-                .popover(isPresented: $showPopover, arrowEdge: .bottom) {
-                    SizePopover().environmentObject(settings).frame(width: 250)
-                }
+                EditHint().padding(.bottom, 2)
+            }
+            .contentShape(Rectangle())
+            .onTapGesture { showPopover = true }
+            .popover(isPresented: $showPopover, arrowEdge: .bottom) {
+                SizePopover().environmentObject(settings).frame(width: 250)
             }
         }
-    }
-
-    private var valueText: String {
-        let v = settings.sizeValue
-        let s = v.rounded() == v ? String(Int(v)) : String(v)
-        return "\(s) \(settings.sizeUnit.rawValue)"
     }
 }
 
@@ -153,29 +130,39 @@ private struct DimensionTile: View {
     }
 
     var body: some View {
-        TileShell(icon: "arrow.up.left.and.arrow.down.right", title: "Dimensions", isOn: $settings.dimensionEnabled) {
-            if settings.controlStyle == .dial {
-                DialControl(value: longSide, range: 256...8192, step: 16,
-                            enabled: settings.dimensionEnabled,
-                            format: { "\(Int($0))px" })
-            } else {
-                Button { showPopover = true } label: {
-                    ValueBadge(value: valueText, caption: settings.dimensionMode.shortName.lowercased())
+        GlassTile(icon: "arrow.up.left.and.arrow.down.right", title: "Dimensions", isOn: $settings.dimensionEnabled) {
+            ZStack(alignment: .bottom) {
+                if settings.dimensionMode == .maxLongSide {
+                    DialControl(value: longSide, range: 256...8192, step: 16,
+                                enabled: settings.dimensionEnabled,
+                                format: { "\(Int($0))px" })
+                } else {
+                    // Advanced modes are number-based; show the value, edit in popover.
+                    VStack(spacing: 2) {
+                        Text(advancedValue)
+                            .font(.system(.title2, design: .rounded).weight(.semibold))
+                            .monospacedDigit().lineLimit(1).minimumScaleFactor(0.6)
+                        Text(settings.dimensionMode.shortName.lowercased())
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .buttonStyle(.plain)
-                .popover(isPresented: $showPopover, arrowEdge: .bottom) {
-                    DimensionPopover().environmentObject(settings).frame(width: 260)
-                }
+                EditHint().padding(.bottom, 2)
+            }
+            .contentShape(Rectangle())
+            .onTapGesture { showPopover = true }
+            .popover(isPresented: $showPopover, arrowEdge: .bottom) {
+                DimensionPopover().environmentObject(settings).frame(width: 290)
             }
         }
     }
 
-    private var valueText: String {
+    private var advancedValue: String {
         switch settings.dimensionMode {
+        case .maxWidth:  return "\(settings.maxWidth)"
+        case .maxHeight: return "\(settings.maxHeight)"
+        case .fit:       return "\(settings.fitWidth)×\(settings.fitHeight)"
         case .maxLongSide: return "\(settings.longSide)"
-        case .maxWidth:    return "\(settings.maxWidth)"
-        case .maxHeight:   return "\(settings.maxHeight)"
-        case .fit:         return "\(settings.fitWidth)×\(settings.fitHeight)"
         }
     }
 }
@@ -217,10 +204,10 @@ private struct DimensionPopover: View {
 
     private func pixelField(_ label: String, _ value: Binding<Int>) -> some View {
         HStack(spacing: 6) {
-            Text(label).font(.callout).foregroundStyle(.secondary)
-            TextField(label, value: value, format: .number)
-                .textFieldStyle(.roundedBorder).frame(width: 70)
-            Text("px").font(.callout).foregroundStyle(.secondary)
+            Text(label).font(.callout).foregroundStyle(.secondary).fixedSize()
+            TextField(label, value: value, format: .number.grouping(.never))
+                .textFieldStyle(.roundedBorder).frame(width: 64)
+            Text("px").font(.callout).foregroundStyle(.secondary).fixedSize()
         }
     }
 }
@@ -231,24 +218,29 @@ private struct FormatTile: View {
     @EnvironmentObject private var settings: SquishSettings
 
     var body: some View {
-        TileShell(icon: "photo", title: "Format", isOn: $settings.formatEnabled) {
+        GlassTile(icon: "photo", title: "Format", isOn: $settings.formatEnabled) {
             VStack(spacing: 8) {
                 ForEach(OutputFormat.allCases) { fmt in
                     Button { settings.format = fmt } label: {
                         Text(fmt.displayName)
                             .font(.system(.body, design: .rounded).weight(.semibold))
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .fill(settings.format == fmt ? Color.accentColor : Color.primary.opacity(0.06))
-                            )
+                            .padding(.vertical, 11)
+                            .background(formatBackground(selected: settings.format == fmt))
                             .foregroundStyle(settings.format == fmt ? .white : .primary)
                     }
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.top, 6)
+            .padding(.top, 8)
+        }
+    }
+
+    private func formatBackground(selected: Bool) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 11, style: .continuous)
+        return ZStack {
+            shape.fill(selected ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.ultraThinMaterial))
+            shape.strokeBorder(.white.opacity(selected ? 0.25 : 0.10), lineWidth: 1)
         }
     }
 }

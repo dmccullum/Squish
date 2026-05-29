@@ -24,20 +24,26 @@ struct DialControl: View {
             ZStack {
                 // Track
                 ArcShape(startDeg: startDeg, sweep: sweep)
-                    .stroke(Color.primary.opacity(0.12), style: .init(lineWidth: 9, lineCap: .round))
+                    .stroke(Color.primary.opacity(0.10), style: .init(lineWidth: 11, lineCap: .round))
                 // Progress
-                ArcShape(startDeg: startDeg, sweep: sweep * fraction)
-                    .stroke(enabled ? Color.accentColor : Color.secondary,
-                            style: .init(lineWidth: 9, lineCap: .round))
+                ArcShape(startDeg: startDeg, sweep: sweep * max(fraction, 0.0001))
+                    .stroke(
+                        enabled
+                        ? AnyShapeStyle(LinearGradient(
+                            colors: [Color.accentColor.opacity(0.65), Color.accentColor],
+                            startPoint: .topLeading, endPoint: .bottomTrailing))
+                        : AnyShapeStyle(Color.secondary),
+                        style: .init(lineWidth: 11, lineCap: .round))
 
                 // Knob
                 let knobDeg = startDeg + sweep * fraction
                 let knob = point(on: center, radius: radius, degrees: knobDeg)
                 Circle()
-                    .fill(.white)
-                    .frame(width: 16, height: 16)
-                    .shadow(radius: 1, y: 1)
+                    .fill(LinearGradient(colors: [.white, Color(white: 0.88)],
+                                         startPoint: .top, endPoint: .bottom))
+                    .frame(width: 18, height: 18)
                     .overlay(Circle().strokeBorder(enabled ? Color.accentColor : Color.secondary, lineWidth: 3))
+                    .shadow(color: .black.opacity(0.35), radius: 2.5, y: 1.5)
                     .position(knob)
 
                 VStack(spacing: 0) {

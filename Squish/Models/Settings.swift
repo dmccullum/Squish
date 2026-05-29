@@ -82,13 +82,6 @@ enum CompressionStrategy: String, CaseIterable, Identifiable, Codable {
     }
 }
 
-/// Which on-screen control treatment to use for the three knobs.
-enum ControlStyle: String, CaseIterable, Identifiable, Codable {
-    case popover, dial
-    var id: String { rawValue }
-    var displayName: String { self == .popover ? "Popovers & sliders" : "Rotary dials" }
-}
-
 /// A named max-long-side pixel preset.
 struct DimensionPreset: Identifiable, Codable, Equatable, Hashable {
     var id = UUID()
@@ -137,7 +130,6 @@ final class SquishSettings: ObservableObject {
     // Preferences (Settings window)
     @Published var defaultFormat: OutputFormat       { didSet { save() } }
     @Published var strategy: CompressionStrategy      { didSet { save() } }
-    @Published var controlStyle: ControlStyle         { didSet { save() } }
     @Published var dimensionPresets: [DimensionPreset] { didSet { save() } }
     @Published var sizePresets: [SizePreset]           { didSet { save() } }
 
@@ -185,7 +177,6 @@ final class SquishSettings: ObservableObject {
         chosenFolderPath = d.string(forKey: "chosenFolderPath") ?? ""
         defaultFormat    = OutputFormat(rawValue: d.string(forKey: "defaultFormat") ?? "") ?? .jpeg
         strategy         = CompressionStrategy(rawValue: d.string(forKey: "strategy") ?? "") ?? .prioritizeSize
-        controlStyle     = ControlStyle(rawValue: d.string(forKey: "controlStyle") ?? "") ?? .popover
         dimensionPresets = Self.decode([DimensionPreset].self, d.data(forKey: "dimensionPresets"))
             ?? SquishSettings.defaultDimensionPresets
         sizePresets      = Self.decode([SizePreset].self, d.data(forKey: "sizePresets"))
@@ -227,7 +218,6 @@ final class SquishSettings: ObservableObject {
         d.set(chosenFolderPath, forKey: "chosenFolderPath")
         d.set(defaultFormat.rawValue, forKey: "defaultFormat")
         d.set(strategy.rawValue, forKey: "strategy")
-        d.set(controlStyle.rawValue, forKey: "controlStyle")
         d.set(try? JSONEncoder().encode(dimensionPresets), forKey: "dimensionPresets")
         d.set(try? JSONEncoder().encode(sizePresets), forKey: "sizePresets")
     }
