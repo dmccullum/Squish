@@ -7,11 +7,9 @@ struct ControlsView: View {
         HStack(alignment: .top, spacing: 14) {
             SizeTile()
             DimensionTile()
-            FormatTile()
         }
         .animation(.snappy(duration: 0.2), value: settings.sizeTargetEnabled)
         .animation(.snappy(duration: 0.2), value: settings.dimensionEnabled)
-        .animation(.snappy(duration: 0.2), value: settings.formatEnabled)
     }
 }
 
@@ -20,8 +18,13 @@ struct ControlsView: View {
 private struct GlassTile<Content: View>: View {
     let icon: String
     let title: String
-    @Binding var isOn: Bool
+    /// nil → no switch; the control is always on (e.g. Format).
+    var toggle: Binding<Bool>? = nil
     @ViewBuilder var content: Content
+
+    private var on: Bool { toggle?.wrappedValue ?? true }
+    /// Only tint the glass for toggleable controls that are switched on.
+    private var tinted: Bool { toggle != nil && on }
 
     var body: some View {
         VStack(spacing: 8) {
@@ -29,18 +32,20 @@ private struct GlassTile<Content: View>: View {
                 Image(systemName: icon).font(.system(size: 12, weight: .semibold))
                 Text(title).font(.subheadline.weight(.semibold))
                 Spacer(minLength: 2)
-                Toggle("", isOn: $isOn.animation(.snappy(duration: 0.2)))
-                    .labelsHidden().toggleStyle(.switch).controlSize(.mini)
+                if let toggle {
+                    Toggle("", isOn: toggle.animation(.snappy(duration: 0.2)))
+                        .labelsHidden().toggleStyle(.switch).controlSize(.mini)
+                }
             }
             content
                 .frame(maxWidth: .infinity)
-                .opacity(isOn ? 1 : 0.4)
-                .disabled(!isOn)
+                .opacity(on ? 1 : 0.4)
+                .disabled(!on)
             Spacer(minLength: 0)
         }
         .padding(12)
         .frame(maxWidth: .infinity, minHeight: 162, maxHeight: 162)
-        .glassCard(cornerRadius: 18, isOn: isOn)
+        .glassCard(cornerRadius: 18, isOn: tinted)
     }
 }
 
@@ -76,7 +81,7 @@ private struct SizeTile: View {
     }
 
     var body: some View {
-        GlassTile(icon: "scalemass", title: "File size", isOn: $settings.sizeTargetEnabled) {
+        GlassTile(icon: "scalemass", title: "File size", toggle: $settings.sizeTargetEnabled) {
             ZStack(alignment: .bottom) {
                 DialControl(value: bytes, range: 50_000...100_000_000, logScale: true,
                             enabled: settings.sizeTargetEnabled,
@@ -107,7 +112,7 @@ private struct SizePopover: View {
             }
             if !settings.sizePresets.isEmpty {
                 Text("Presets").font(.caption).foregroundStyle(.secondary)
-                ChipGrid(settings.sizePresets.map { ($0.id, $0.name, $0.valueLabel) }) { id in
+                ChipGrid(settings.sortedSizePresets.map { ($0.id, $0.name, $0.valueLabel) }) { id in
                     if let p = settings.sizePresets.first(where: { $0.id == id }) {
                         settings.sizeValue = p.value; settings.sizeUnit = p.unit
                     }
@@ -130,7 +135,7 @@ private struct DimensionTile: View {
     }
 
     var body: some View {
-        GlassTile(icon: "arrow.up.left.and.arrow.down.right", title: "Dimensions", isOn: $settings.dimensionEnabled) {
+        GlassTile(icon: "arrow.up.left.and.arrow.down.right", title: "Dimensions", toggle: $settings.dimensionEnabled) {
             ZStack(alignment: .bottom) {
                 if settings.dimensionMode == .maxLongSide {
                     DialControl(value: longSide, range: 256...8192, step: 16,
@@ -191,7 +196,7 @@ private struct DimensionPopover: View {
 
             if !settings.dimensionPresets.isEmpty {
                 Text("Presets").font(.caption).foregroundStyle(.secondary)
-                ChipGrid(settings.dimensionPresets.map { ($0.id, $0.name, "\($0.pixels)") }) { id in
+                ChipGrid(settings.sortedDimensionPresets.map { ($0.id, $0.name, "\($0.pixels)") }) { id in
                     if let p = settings.dimensionPresets.first(where: { $0.id == id }) {
                         settings.dimensionMode = .maxLongSide
                         settings.longSide = p.pixels
@@ -208,39 +213,6 @@ private struct DimensionPopover: View {
             TextField(label, value: value, format: .number.grouping(.never))
                 .textFieldStyle(.roundedBorder).frame(width: 64)
             Text("px").font(.callout).foregroundStyle(.secondary).fixedSize()
-        }
-    }
-}
-
-// MARK: - Format
-
-private struct FormatTile: View {
-    @EnvironmentObject private var settings: SquishSettings
-
-    var body: some View {
-        GlassTile(icon: "photo", title: "Format", isOn: $settings.formatEnabled) {
-            VStack(spacing: 8) {
-                ForEach(OutputFormat.allCases) { fmt in
-                    Button { settings.format = fmt } label: {
-                        Text(fmt.displayName)
-                            .font(.system(.body, design: .rounded).weight(.semibold))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 11)
-                            .background(formatBackground(selected: settings.format == fmt))
-                            .foregroundStyle(settings.format == fmt ? .white : .primary)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.top, 8)
-        }
-    }
-
-    private func formatBackground(selected: Bool) -> some View {
-        let shape = RoundedRectangle(cornerRadius: 11, style: .continuous)
-        return ZStack {
-            shape.fill(selected ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.ultraThinMaterial))
-            shape.strokeBorder(.white.opacity(selected ? 0.25 : 0.10), lineWidth: 1)
         }
     }
 }

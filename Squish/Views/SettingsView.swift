@@ -21,11 +21,6 @@ private struct GeneralPane: View {
 
     var body: some View {
         Form {
-            Picker("Default format", selection: $settings.defaultFormat) {
-                ForEach(OutputFormat.allCases) { Text($0.displayName).tag($0) }
-            }
-            .help("Used whenever the Format control is off — including for inputs like PNG.")
-
             Section("Batches") {
                 Picker("When squishing several images", selection: $settings.strategy) {
                     ForEach(CompressionStrategy.allCases) { Text($0.displayName).tag($0) }
@@ -46,19 +41,31 @@ private struct GeneralPane: View {
 private struct DimensionPresetsPane: View {
     @EnvironmentObject private var settings: SquishSettings
 
+    // Edit by id so rows can re-sort live without losing the binding.
+    private func binding(_ id: UUID) -> Binding<DimensionPreset> {
+        Binding(
+            get: { settings.dimensionPresets.first { $0.id == id } ?? .init(name: "", pixels: 0) },
+            set: { newValue in
+                if let i = settings.dimensionPresets.firstIndex(where: { $0.id == id }) {
+                    settings.dimensionPresets[i] = newValue
+                }
+            })
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Quick-pick pixel sizes shown in the Dimensions control (applied as a max long side).")
+            Text("Quick-pick pixel sizes shown in the Dimensions control (applied as a max long side). Sorted largest to smallest.")
                 .font(.callout).foregroundStyle(.secondary)
                 .padding([.horizontal, .top], 16)
                 .padding(.bottom, 8)
 
             List {
-                ForEach($settings.dimensionPresets) { $preset in
+                ForEach(settings.sortedDimensionPresets) { preset in
+                    let row = binding(preset.id)
                     HStack(spacing: 10) {
-                        TextField("Name", text: $preset.name)
+                        TextField("Name", text: row.name)
                             .textFieldStyle(.roundedBorder)
-                        TextField("px", value: $preset.pixels, format: .number)
+                        TextField("px", value: row.pixels, format: .number.grouping(.never))
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 80)
                         Text("px").foregroundStyle(.secondary)
@@ -87,22 +94,33 @@ private struct DimensionPresetsPane: View {
 private struct SizePresetsPane: View {
     @EnvironmentObject private var settings: SquishSettings
 
+    private func binding(_ id: UUID) -> Binding<SizePreset> {
+        Binding(
+            get: { settings.sizePresets.first { $0.id == id } ?? .init(name: "", value: 0, unit: .mb) },
+            set: { newValue in
+                if let i = settings.sizePresets.firstIndex(where: { $0.id == id }) {
+                    settings.sizePresets[i] = newValue
+                }
+            })
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Quick-pick file-size limits shown in the File size control.")
+            Text("Quick-pick file-size limits shown in the File size control. Sorted largest to smallest.")
                 .font(.callout).foregroundStyle(.secondary)
                 .padding([.horizontal, .top], 16)
                 .padding(.bottom, 8)
 
             List {
-                ForEach($settings.sizePresets) { $preset in
+                ForEach(settings.sortedSizePresets) { preset in
+                    let row = binding(preset.id)
                     HStack(spacing: 10) {
-                        TextField("Name", text: $preset.name)
+                        TextField("Name", text: row.name)
                             .textFieldStyle(.roundedBorder)
-                        TextField("Size", value: $preset.value, format: .number)
+                        TextField("Size", value: row.value, format: .number)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 70)
-                        Picker("", selection: $preset.unit) {
+                        Picker("", selection: row.unit) {
                             ForEach(SizeUnit.allCases) { Text($0.rawValue).tag($0) }
                         }
                         .labelsHidden()

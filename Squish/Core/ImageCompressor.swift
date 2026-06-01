@@ -14,9 +14,7 @@ struct CompressionRequest {
     var maxHeight: Int
     var fitWidth: Int
     var fitHeight: Int
-    var formatEnabled: Bool
     var format: OutputFormat
-    var defaultFormat: OutputFormat
 
     @MainActor init(_ s: SquishSettings) {
         sizeTargetEnabled = s.sizeTargetEnabled
@@ -28,9 +26,7 @@ struct CompressionRequest {
         maxHeight = s.maxHeight
         fitWidth = s.fitWidth
         fitHeight = s.fitHeight
-        formatEnabled = s.formatEnabled
         format = s.format
-        defaultFormat = s.defaultFormat
     }
 }
 
@@ -63,9 +59,9 @@ enum ImageCompressor {
     private static let downscaleFactor: CGFloat = 0.85
     static let defaultQuality = 0.85
 
-    /// The concrete output format: explicit per-job choice, else the default.
+    /// The output format (always applied).
     static func resolveFormat(request: CompressionRequest) -> OutputFormat {
-        request.formatEnabled ? request.format : request.defaultFormat
+        request.format
     }
 
     /// Compress one image. If `overrideQuality` is given, that exact quality is

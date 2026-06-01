@@ -10,7 +10,7 @@ struct SquishApp: App {
             ContentView()
                 .environmentObject(settings)
                 .environmentObject(runner)
-                .frame(width: 680, height: 420)
+                .frame(width: 500, height: 420)
         }
         .windowResizability(.contentSize)
         .commands {

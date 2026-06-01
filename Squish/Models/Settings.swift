@@ -68,16 +68,16 @@ enum CompressionStrategy: String, CaseIterable, Identifiable, Codable {
 
     var displayName: String {
         switch self {
-        case .prioritizeSize: return "Prioritize file size"
-        case .matchQuality:   return "Match quality across batch"
+        case .prioritizeSize: return "Same file size"
+        case .matchQuality:   return "Same quality setting"
         }
     }
     var detail: String {
         switch self {
         case .prioritizeSize:
-            return "Every image is squished to the target individually."
+            return "Every image is squished to the same target file size."
         case .matchQuality:
-            return "Find the quality that lands the largest image on target, then apply it to all so they look consistent."
+            return "Find the quality that lands the largest image on target, then apply that same quality to every image."
         }
     }
 }
@@ -119,8 +119,7 @@ final class SquishSettings: ObservableObject {
     @Published var fitWidth: Int             { didSet { save() } }
     @Published var fitHeight: Int            { didSet { save() } }
 
-    // Format (per-job override of the default)
-    @Published var formatEnabled: Bool       { didSet { save() } }
+    // Format — always applied (the output is always JPEG or HEIC).
     @Published var format: OutputFormat      { didSet { save() } }
 
     // Output placement
@@ -128,7 +127,6 @@ final class SquishSettings: ObservableObject {
     @Published var chosenFolderPath: String  { didSet { save() } }
 
     // Preferences (Settings window)
-    @Published var defaultFormat: OutputFormat       { didSet { save() } }
     @Published var strategy: CompressionStrategy      { didSet { save() } }
     @Published var dimensionPresets: [DimensionPreset] { didSet { save() } }
     @Published var sizePresets: [SizePreset]           { didSet { save() } }
@@ -136,14 +134,11 @@ final class SquishSettings: ObservableObject {
     /// Default auto-naming suffix for single files and containers.
     let suffix = " (squished)"
 
-    /// At least one transform must be active before we can process.
-    var isActionable: Bool { sizeTargetEnabled || dimensionEnabled || formatEnabled }
+    /// Format always applies, so there's always something to do.
+    var isActionable: Bool { true }
 
     /// Target size in bytes (decimal KB/MB to match Finder's display).
     var targetBytes: Int { Int(sizeValue) * sizeUnit.multiplier }
-
-    /// The format used when the per-job Format toggle is off.
-    var effectiveFormat: OutputFormat { formatEnabled ? format : defaultFormat }
 
     var chosenFolder: URL? {
         chosenFolderPath.isEmpty ? nil : URL(fileURLWithPath: chosenFolderPath, isDirectory: true)
@@ -157,9 +152,8 @@ final class SquishSettings: ObservableObject {
             "sizeUnit": SizeUnit.mb.rawValue,
             "longSide": 2048, "maxWidth": 1920, "maxHeight": 1080,
             "fitWidth": 1920, "fitHeight": 1080,
-            // Sensible first-run preset so a drop works immediately.
-            "dimensionEnabled": true,
-            "formatEnabled": false,
+            // First run: File size on (1 MB). Format always applies.
+            "sizeTargetEnabled": true,
         ])
         sizeTargetEnabled = d.bool(forKey: "sizeTargetEnabled")
         sizeValue        = d.double(forKey: "sizeValue")
@@ -171,11 +165,9 @@ final class SquishSettings: ObservableObject {
         maxHeight        = d.integer(forKey: "maxHeight")
         fitWidth         = d.integer(forKey: "fitWidth")
         fitHeight        = d.integer(forKey: "fitHeight")
-        formatEnabled    = d.bool(forKey: "formatEnabled")
         format           = OutputFormat(rawValue: d.string(forKey: "format") ?? "") ?? .jpeg
         outputMode       = OutputMode(rawValue: d.string(forKey: "outputMode") ?? "") ?? .auto
         chosenFolderPath = d.string(forKey: "chosenFolderPath") ?? ""
-        defaultFormat    = OutputFormat(rawValue: d.string(forKey: "defaultFormat") ?? "") ?? .jpeg
         strategy         = CompressionStrategy(rawValue: d.string(forKey: "strategy") ?? "") ?? .prioritizeSize
         dimensionPresets = Self.decode([DimensionPreset].self, d.data(forKey: "dimensionPresets"))
             ?? SquishSettings.defaultDimensionPresets
@@ -184,17 +176,23 @@ final class SquishSettings: ObservableObject {
     }
 
     static let defaultDimensionPresets: [DimensionPreset] = [
-        .init(name: "Original-ish", pixels: 4096),
+        .init(name: "4K", pixels: 4096),
         .init(name: "Large", pixels: 2560),
         .init(name: "Web", pixels: 1920),
         .init(name: "Medium", pixels: 1280),
         .init(name: "Thumbnail", pixels: 640),
     ]
     static let defaultSizePresets: [SizePreset] = [
+        .init(name: "Canva", value: 50, unit: .mb),
+        .init(name: "Print", value: 25, unit: .mb),
         .init(name: "Email", value: 5, unit: .mb),
         .init(name: "Web", value: 1, unit: .mb),
         .init(name: "Small", value: 500, unit: .kb),
     ]
+
+    /// Presets sorted largest → smallest for display.
+    var sortedSizePresets: [SizePreset] { sizePresets.sorted { $0.bytes > $1.bytes } }
+    var sortedDimensionPresets: [DimensionPreset] { dimensionPresets.sorted { $0.pixels > $1.pixels } }
 
     private static func decode<T: Decodable>(_ type: T.Type, _ data: Data?) -> T? {
         guard let data else { return nil }
@@ -212,11 +210,9 @@ final class SquishSettings: ObservableObject {
         d.set(maxHeight, forKey: "maxHeight")
         d.set(fitWidth, forKey: "fitWidth")
         d.set(fitHeight, forKey: "fitHeight")
-        d.set(formatEnabled, forKey: "formatEnabled")
         d.set(format.rawValue, forKey: "format")
         d.set(outputMode.rawValue, forKey: "outputMode")
         d.set(chosenFolderPath, forKey: "chosenFolderPath")
-        d.set(defaultFormat.rawValue, forKey: "defaultFormat")
         d.set(strategy.rawValue, forKey: "strategy")
         d.set(try? JSONEncoder().encode(dimensionPresets), forKey: "dimensionPresets")
         d.set(try? JSONEncoder().encode(sizePresets), forKey: "sizePresets")
