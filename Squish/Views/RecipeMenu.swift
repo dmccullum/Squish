@@ -141,6 +141,7 @@ final class RecipeDialView: NSView {
     private let big = NSTextField(labelWithString: "")
     private let why = NSTextField(labelWithString: "")
     private let slider = NSSlider(value: 0, minValue: 0, maxValue: 1, target: nil, action: nil)
+    private let anyDot = AnyDot()
     private var mode: NSSegmentedControl?
     private var snapped: String?
 
@@ -210,7 +211,13 @@ final class RecipeDialView: NSView {
             y += 32
         }
 
-        slider.frame = NSRect(x: x, y: y, width: w, height: 20)
+        // The orange dot at the start of the track means "no limit".
+        anyDot.frame = NSRect(x: x, y: y, width: 20, height: 20)
+        anyDot.label = isSize ? "Any file size" : "Any dimensions"
+        anyDot.onClick = { [weak self] in self?.chooseAny() }
+        addSubview(anyDot)
+
+        slider.frame = NSRect(x: x + 24, y: y, width: w - 24, height: 20)
         slider.isContinuous = true
         // Menus never become key, so the default fill would draw grey.
         slider.trackFillColor = NSColor(named: "AccentColor")
@@ -247,6 +254,14 @@ final class RecipeDialView: NSView {
         snapped = snap?.name
 
         if isSize { setBytes(v, preset: snap?.name) } else { setPixels(Int((v / 16).rounded()) * 16, preset: snap?.name) }
+        sync(fromSettings: false)
+        context.preview(currentPreview)
+    }
+
+    private func chooseAny() {
+        if isSize { settings.sizeTargetEnabled = false } else { settings.dimensionEnabled = false }
+        snapped = nil
+        NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
         sync(fromSettings: false)
         context.preview(currentPreview)
     }
@@ -306,6 +321,8 @@ final class RecipeDialView: NSView {
             }
         }
         updateCheckmarks()
+        anyDot.isOn = !isOn
+        slider.alphaValue = isOn ? 1 : 0.45
         let p = currentPreview
         big.stringValue = p.title
         why.stringValue = p.detail
@@ -332,7 +349,7 @@ final class RecipeDialView: NSView {
         if let snapped, isOn {
             detail = "\(snapped) preset · " + (isSize ? PresetInfo.blurb(size: snapped) : PresetInfo.blurb(pixels: snapped))
         } else {
-            detail = isOn ? "Drag for any size" : "Drag to set a limit"
+            detail = isOn ? "Drag for any size, or tap the dot for no limit" : "Drag to set a limit"
         }
         if isSize {
             return RecipePreview(squeeze: isOn ? RecipeScale.squeeze(bytes: settings.targetBytes) : 0,
@@ -340,5 +357,59 @@ final class RecipeDialView: NSView {
         }
         return RecipePreview(squeeze: 0.3, photoScale: isOn ? RecipeScale.photoScale(pixels: settings.activePixels) : 1,
                              title: title, detail: detail)
+    }
+}
+
+/// The "no limit" switch at the start of the dial's track: a solid orange dot
+/// when there's no limit, a ring when there is one.
+@MainActor
+final class AnyDot: NSView {
+    var onClick: () -> Void = {}
+    var label = "" { didSet { toolTip = label; setAccessibilityLabel(label) } }
+    var isOn = false { didSet { needsDisplay = true; setAccessibilityValue(isOn ? "On" : "Off") } }
+    private var hovering = false { didSet { needsDisplay = true } }
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        setAccessibilityElement(true)
+        setAccessibilityRole(.checkBox)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+                                       owner: self))
+    }
+    override func mouseEntered(with event: NSEvent) { hovering = true }
+    override func mouseExited(with event: NSEvent) { hovering = false }
+    override func mouseDown(with event: NSEvent) {}
+    override func mouseUp(with event: NSEvent) {
+        if bounds.contains(convert(event.locationInWindow, from: nil)) { onClick() }
+    }
+    override func accessibilityPerformPress() -> Bool { onClick(); return true }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let orange = NSColor(named: "AccentColor") ?? .systemOrange
+        let d: CGFloat = hovering ? 14 : 12
+        let rect = NSRect(x: (bounds.width - d) / 2, y: (bounds.height - d) / 2, width: d, height: d)
+        if isOn {
+            let glow = NSShadow()
+            glow.shadowColor = orange.withAlphaComponent(0.6)
+            glow.shadowBlurRadius = 4
+            glow.set()
+            orange.setFill()
+            NSBezierPath(ovalIn: rect).fill()
+        } else {
+            orange.withAlphaComponent(hovering ? 0.35 : 0.15).setFill()
+            NSBezierPath(ovalIn: rect).fill()
+            let ring = NSBezierPath(ovalIn: rect.insetBy(dx: 0.75, dy: 0.75))
+            ring.lineWidth = 1.5
+            orange.setStroke()
+            ring.stroke()
+        }
     }
 }

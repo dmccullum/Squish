@@ -188,6 +188,7 @@ final class SquishSettings: ObservableObject {
     static let defaultSizePresets: [SizePreset] = [
         .init(name: "Uploads", value: 50, unit: .mb),
         .init(name: "Print", value: 25, unit: .mb),
+        .init(name: "Share", value: 10, unit: .mb),
         .init(name: "Email", value: 5, unit: .mb),
         .init(name: "Web", value: 1, unit: .mb),
         .init(name: "Small", value: 500, unit: .kb),
@@ -199,12 +200,18 @@ final class SquishSettings: ObservableObject {
 
     /// "Canva · 50 MB" was Canva's upload ceiling, not a recommendation; it
     /// shipped under that name before 2026-10, so rename untouched copies.
+    /// Lists still holding the original five defaults also gain "Share · 10 MB".
     private static func migrated(_ presets: [SizePreset]) -> [SizePreset] {
-        presets.map { p in
+        var presets = presets.map { p in
             var p = p
             if p.name == "Canva", p.bytes == 50_000_000 { p.name = "Uploads" }
             return p
         }
+        let originals: Set<Int> = [50_000_000, 25_000_000, 5_000_000, 1_000_000, 500_000]
+        if Set(presets.map(\.bytes)) == originals {
+            presets.append(.init(name: "Share", value: 10, unit: .mb))
+        }
+        return presets
     }
 
     private static func decode<T: Decodable>(_ type: T.Type, _ data: Data?) -> T? {

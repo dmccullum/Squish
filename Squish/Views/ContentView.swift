@@ -116,9 +116,6 @@ struct ContentView: View {
                 Text(isTargeted ? "Let go to squish" : "Drop images to squish")
                     .font(.title2.weight(.semibold))
                     .contentTransition(.interpolate)
-                Text("Photos, a folder, or a whole pile · \(Text("⌘O").foregroundStyle(.tertiary)) to browse")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
             }
         }
         .animation(.easeOut(duration: 0.15), value: isTargeted)

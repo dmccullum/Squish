@@ -171,7 +171,7 @@ extension SquishSettings {
 
         switch style {
         case .popUp:
-            return [.dial, .separator, any,
+            return [.dial, .separator,
                     .submenu("Presets", preview: .init(title: "Presets", detail: "Uploads, Email, Web and your own"), presets),
                     edit]
         case .menuBar:
@@ -213,7 +213,7 @@ extension SquishSettings {
 
         switch style {
         case .popUp:
-            return [.dial, .separator, any,
+            return [.dial, .separator,
                     .submenu("Presets", preview: .init(title: "Presets", detail: "4K, Web, Thumbnail and your own"), presets),
                     fit, edit]
         case .menuBar:
@@ -256,6 +256,7 @@ enum PresetInfo {
         switch name.lowercased() {
         case "uploads": return "Fits most upload limits"
         case "print":   return "Plenty for high-quality prints"
+        case "share":   return "Messages, Discord and most forms"
         case "email":   return "Comfortable as an attachment"
         case "web":     return "Fast-loading web pages"
         case "small":   return "Chat, forms and thumbnails"
@@ -267,6 +268,7 @@ enum PresetInfo {
         switch name.lowercased() {
         case "uploads": return "icloud.and.arrow.up"
         case "print":   return "printer"
+        case "share":   return "square.and.arrow.up"
         case "email":   return "envelope"
         case "web":     return "globe"
         case "small":   return "leaf"

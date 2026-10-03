@@ -14,8 +14,8 @@ The window reads like an instruction:
 
 Each orange phrase is a pop-up menu. **File size** and **Dimensions** open on a live dial: drag the slider and the value applies immediately while the menu stays open, with the clamp in the window acting it out. Presets live one level down, in a Presets submenu and as detents on the slider.
 
-- **File size**: any size, or drag to any limit. Presets: Uploads 50 MB, Print 25 MB, Email 5 MB, Web 1 MB, Small 500 KB.
-- **Dimensions**: any size, or drag a long-side, width or height limit; **Fit Within a Box…** sets both. Images are never upscaled.
+- **File size**: drag to any limit, or tap the orange dot at the start of the slider for no limit. Presets: Uploads 50 MB, Print 25 MB, Share 10 MB, Email 5 MB, Web 1 MB, Small 500 KB.
+- **Dimensions**: the same dot for no limit, or drag a long-side, width or height limit; **Fit Within a Box…** sets both. Images are never upscaled.
 - **Format**: JPEG (opens anywhere) or HEIC (smaller, best on Apple devices).
 - **Save to**: next to the originals, or a folder you choose.
 

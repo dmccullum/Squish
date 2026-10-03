@@ -28,7 +28,16 @@ final class OutputPlanner {
         self.config = config
         let (container, root) = OutputPlanner.resolveContainer(input: input, config: config)
         self.folderRoot = root
-        self.containerDir = container.map { OutputPlanner.uniqueDirectory($0) }
+        // Only folders Squish makes for this batch get a fresh name ("Squished 2");
+        // existing destinations (the originals' folder, a chosen folder) are
+        // written into as they are.
+        let makesNewFolder: Bool
+        switch (config.outputMode, input) {
+        case (_, .folder):                 makesNewFolder = true
+        case (.auto, .group):              makesNewFolder = true
+        default:                           makesNewFolder = false
+        }
+        self.containerDir = makesNewFolder ? container.map { OutputPlanner.uniqueDirectory($0) } : container
     }
 
     /// The top-level folder we'll be writing into (for "Reveal in Finder").
