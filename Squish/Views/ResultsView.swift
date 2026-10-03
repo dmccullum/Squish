@@ -1,8 +1,15 @@
 import SwiftUI
+import QuickLook
+import QuickLookThumbnailing
 
 struct ResultsView: View {
     @EnvironmentObject private var runner: JobRunner
-    let onMore: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    @State private var released = false
+    @State private var shownPercent = 0.0
+    @State private var selection = Set<JobResult.ID>()
+    @State private var preview: URL?
 
     private var successes: [JobResult] { runner.results.filter(\.isSuccess) }
     private var failures: [JobResult] { runner.results.filter { !$0.isSuccess } }
@@ -10,7 +17,7 @@ struct ResultsView: View {
     private var totalFinal: Int { successes.reduce(0) { $0 + $1.finalBytes } }
     private var savedBytes: Int { max(0, totalOriginal - totalFinal) }
     private var savedPercent: Double {
-        totalOriginal > 0 ? Double(totalOriginal - totalFinal) / Double(totalOriginal) * 100 : 0
+        totalOriginal > 0 ? Double(savedBytes) / Double(totalOriginal) * 100 : 0
     }
 
     var body: some View {
@@ -18,141 +25,188 @@ struct ResultsView: View {
             if runner.emptyDrop {
                 emptyState
             } else {
-                summary
-                Divider()
-                List {
-                    ForEach(runner.results) { ResultRow(result: $0) }
-                }
-                .listStyle(.inset)
+                header
+                list
             }
-
-            Divider()
             footer
         }
-    }
-
-    private var summary: some View {
-        VStack(spacing: 6) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 40))
-                .foregroundStyle(Color.accentColor)
-                .symbolEffect(.bounce, value: runner.hasFinished)
-
-            Text(savedBytes > 0
-                 ? "Saved \(ByteFormat.string(savedBytes))"
-                 : "Done")
-                .font(.title2.bold())
-
-            Text(headline)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-
-            if !failures.isEmpty {
-                Label("\(failures.count) couldn’t be squished", systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
+        .onAppear {
+            withAnimation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.5, dampingFraction: 0.45)) {
+                released = true
+            }
+            withAnimation(.easeOut(duration: reduceMotion ? 0 : 0.9).delay(0.1)) {
+                shownPercent = savedPercent
             }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 18)
     }
 
-    private var headline: String {
-        let n = successes.count
-        let noun = n == 1 ? "image" : "images"
-        if savedBytes > 0 {
-            return "\(n) \(noun) · \(Int(savedPercent.rounded()))% smaller"
+    // MARK: - Header
+
+    private var header: some View {
+        HStack(spacing: 18) {
+            ClampView(squeeze: released ? 0 : 1)
+                .frame(width: 78, height: 84)
+            VStack(alignment: .leading, spacing: 3) {
+                if savedBytes > 0 {
+                    PercentText(value: shownPercent)
+                        .font(.system(size: 40, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color.squishInk)
+                    Text("\(ByteFormat.string(savedBytes)) lighter · \(imageCount)")
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text(successes.isEmpty ? "Nothing squished" : "Already lean")
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                    Text(successes.isEmpty ? "Nothing could be saved." : "\(imageCount) · nothing left to squeeze")
+                        .foregroundStyle(.secondary)
+                }
+                if runner.wasCancelled {
+                    Text("Cancelled after \(runner.results.count) of \(runner.totalFiles)")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                if !failures.isEmpty {
+                    Label("\(failures.count) couldn’t be squished", systemImage: "exclamationmark.triangle.fill")
+                        .font(.callout)
+                        .foregroundStyle(.orange)
+                }
+            }
+            Spacer(minLength: 0)
         }
-        return "\(n) \(noun) squished"
+        .padding(.horizontal, 24)
+        .padding(.top, 40)
+        .padding(.bottom, 14)
     }
+
+    private var imageCount: String {
+        successes.count == 1 ? "1 image" : "\(successes.count) images"
+    }
+
+    // MARK: - List
+
+    private var list: some View {
+        List(runner.results, selection: $selection) { result in
+            ResultRow(result: result)
+                .onDrag { result.output.flatMap { NSItemProvider(contentsOf: $0) } ?? NSItemProvider() }
+        }
+        .listStyle(.inset(alternatesRowBackgrounds: true))
+        .scrollContentBackground(.hidden)
+        .contextMenu(forSelectionType: JobResult.ID.self) { ids in
+            let urls = outputs(for: ids)
+            Button("Open") { urls.forEach { NSWorkspace.shared.open($0) } }.disabled(urls.isEmpty)
+            Button("Show in Finder") { Platform.reveal(urls) }.disabled(urls.isEmpty)
+            Button("Quick Look") { preview = urls.first }.disabled(urls.isEmpty)
+            Divider()
+            Button("Copy") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.writeObjects(urls as [NSURL])
+            }.disabled(urls.isEmpty)
+        } primaryAction: { ids in
+            outputs(for: ids).forEach { NSWorkspace.shared.open($0) }
+        }
+        .onKeyPress(.space) {
+            guard let url = outputs(for: selection).first else { return .ignored }
+            preview = url
+            return .handled
+        }
+        .quickLookPreview($preview, in: runner.outputs)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
+        .padding(.horizontal, 16)
+    }
+
+    private func outputs(for ids: Set<JobResult.ID>) -> [URL] {
+        runner.results.filter { ids.contains($0.id) }.compactMap(\.output)
+    }
+
+    // MARK: - Empty
 
     private var emptyState: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "questionmark.folder")
-                .font(.system(size: 40))
+        VStack(spacing: 12) {
+            ClampView(squeeze: 0)
+                .frame(height: 130)
+            Text("Nothing to squish")
+                .font(.title2.weight(.semibold))
+            Text("That drop didn’t include any images Squish can read.")
                 .foregroundStyle(.secondary)
-            Text("No images found")
-                .font(.title2.bold())
-            Text("That drop didn’t contain any images Squish can read.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(40)
     }
+
+    // MARK: - Footer
 
     private var footer: some View {
         HStack {
-            if !successes.isEmpty {
-                Button {
-                    Platform.reveal(successes.compactMap(\.output))
-                } label: {
-                    Label("Reveal in Finder", systemImage: "folder")
-                }
+            if !runner.outputs.isEmpty {
+                Button("Show in Finder") { Platform.reveal(runner.outputs) }
             }
             Spacer()
-            Button(action: onMore) {
-                Label("Squish More", systemImage: "plus")
-            }
-            .buttonStyle(.borderedProminent)
-            .keyboardShortcut(.defaultAction)
+            Text("Drop more to keep going")
+                .font(.callout)
+                .foregroundStyle(.tertiary)
+            Spacer()
+            Button("Done") { runner.reset() }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
         }
         .padding(16)
     }
 }
 
+/// "−81%" that counts up smoothly as `value` animates.
+private struct PercentText: View, Animatable {
+    var value: Double
+    var animatableData: Double {
+        get { value }
+        set { value = newValue }
+    }
+    var body: some View {
+        Text("−\(Int(value.rounded()))%").monospacedDigit()
+    }
+}
+
 private struct ResultRow: View {
     let result: JobResult
+    @State private var thumbnail: NSImage?
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .foregroundStyle(iconColor)
-                .font(.title3)
-                .frame(width: 22)
-
-            VStack(alignment: .leading, spacing: 2) {
+        HStack(spacing: 10) {
+            thumb
+            VStack(alignment: .leading, spacing: 1) {
                 Text(result.output?.lastPathComponent ?? result.name)
-                    .font(.callout.weight(.medium))
+                    .fontWeight(.medium)
                     .lineLimit(1)
                     .truncationMode(.middle)
                 detail
             }
-            Spacer()
-            if result.isSuccess, result.savedPercent > 0 {
-                Text("−\(Int(result.savedPercent.rounded()))%")
-                    .font(.callout.weight(.semibold).monospacedDigit())
-                    .foregroundStyle(Color.accentColor)
-            }
-            if let output = result.output {
-                Button {
-                    Platform.reveal([output])
-                } label: {
-                    Image(systemName: "magnifyingglass")
-                }
-                .buttonStyle(.borderless)
-                .help("Show in Finder")
-            }
+            Spacer(minLength: 8)
+            badge
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 3)
+        .task(id: result.output) { thumbnail = await Thumbnails.load(result.output) }
+        .help(result.output?.path ?? result.source.path)
     }
 
-    @ViewBuilder
-    private var detail: some View {
+    @ViewBuilder private var thumb: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Color.primary.opacity(0.06))
+            if let thumbnail {
+                Image(nsImage: thumbnail).resizable().aspectRatio(contentMode: .fill)
+            } else if !result.isSuccess {
+                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+            }
+        }
+        .frame(width: 38, height: 30)
+        .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(Color.primary.opacity(0.1)))
+    }
+
+    @ViewBuilder private var detail: some View {
         switch result.status {
         case .success:
-            HStack(spacing: 6) {
-                Text("\(ByteFormat.string(result.originalBytes)) → \(ByteFormat.string(result.finalBytes))")
-                if let o = result.originalSize, let f = result.finalSize, o != f {
-                    Text("· \(dims(f))")
-                }
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            if let note = result.note {
-                Text(note).font(.caption2).foregroundStyle(.tertiary)
-            }
+            Text(successDetail)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
         case .skipped(let why):
             Text(why).font(.caption).foregroundStyle(.secondary)
         case .failed(let why):
@@ -160,23 +214,31 @@ private struct ResultRow: View {
         }
     }
 
-    private func dims(_ size: CGSize) -> String {
-        "\(Int(size.width))×\(Int(size.height))"
+    private var successDetail: String {
+        var s = "\(ByteFormat.string(result.originalBytes)) → \(ByteFormat.string(result.finalBytes))"
+        if let o = result.originalSize, let f = result.finalSize, o != f {
+            s += " · \(Int(f.width))×\(Int(f.height))"
+        }
+        if let note = result.note { s += " · \(note)" }
+        return s
     }
 
-    private var icon: String {
-        switch result.status {
-        case .success: return "checkmark.circle.fill"
-        case .skipped: return "minus.circle"
-        case .failed:  return "exclamationmark.circle.fill"
+    @ViewBuilder private var badge: some View {
+        if result.isSuccess, result.savedPercent >= 1 {
+            Text("−\(Int(result.savedPercent.rounded()))%")
+                .font(.callout.weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(Color.squishInk)
         }
     }
+}
 
-    private var iconColor: Color {
-        switch result.status {
-        case .success: return Color.accentColor
-        case .skipped: return .secondary
-        case .failed:  return .orange
-        }
+enum Thumbnails {
+    static func load(_ url: URL?) async -> NSImage? {
+        guard let url else { return nil }
+        let request = QLThumbnailGenerator.Request(fileAt: url, size: CGSize(width: 76, height: 60),
+                                                   scale: NSScreen.main?.backingScaleFactor ?? 2,
+                                                   representationTypes: .thumbnail)
+        return try? await QLThumbnailGenerator.shared.generateBestRepresentation(for: request).nsImage
     }
 }

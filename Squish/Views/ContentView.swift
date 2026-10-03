@@ -4,98 +4,160 @@ import UniformTypeIdentifiers
 struct ContentView: View {
     @EnvironmentObject private var settings: SquishSettings
     @EnvironmentObject private var runner: JobRunner
+    @EnvironmentObject private var editor: RecipeEditor
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var isTargeted = false
+    @State private var hoveringHero = false
+    @State private var twist = 0.0
 
     var body: some View {
         ZStack {
-            Color(nsColor: .windowBackgroundColor).ignoresSafeArea()
-            backdrop.ignoresSafeArea()
-
-            Group {
-                if runner.isRunning {
-                    ProcessingView()
-                } else if runner.hasFinished {
-                    ResultsView(onMore: { runner.reset() })
-                } else {
-                    idleView
-                }
+            background
+            if runner.hasFinished {
+                ResultsView()
+                    .transition(.opacity)
+            } else {
+                main
+                    .transition(.opacity)
             }
         }
-        .animation(.snappy(duration: 0.28), value: runner.isRunning)
-        .animation(.snappy(duration: 0.28), value: runner.hasFinished)
+        .animation(.easeInOut(duration: 0.25), value: runner.hasFinished)
         .onDrop(of: [.fileURL], isTargeted: $isTargeted) { providers in
-            handleDrop(providers)
-        }
-    }
-
-    /// Soft colored light so the Liquid Glass tiles have something to refract.
-    private var backdrop: some View {
-        ZStack {
-            Circle().fill(Color.accentColor).frame(width: 340)
-                .blur(radius: 120).opacity(0.45).offset(x: -170, y: -130)
-            Circle().fill(Color(red: 0.30, green: 0.55, blue: 1.0)).frame(width: 300)
-                .blur(radius: 120).opacity(0.32).offset(x: 190, y: 70)
-            Circle().fill(Color(red: 1.0, green: 0.35, blue: 0.7)).frame(width: 260)
-                .blur(radius: 120).opacity(0.26).offset(x: 150, y: -160)
-        }
-    }
-
-    // MARK: - Idle
-
-    private var idleView: some View {
-        VStack(spacing: 0) {
-            VStack(spacing: 24) {
-                DropZoneView(isTargeted: isTargeted) { addFromPanel() }
-                    .frame(height: 150)
-                ControlsView()
+            loadURLs(from: providers) { urls in
+                if runner.hasFinished { runner.reset() }
+                runner.accept(urls, settings: settings)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 26)
-            .padding(.bottom, 13)
+            return true
+        }
+    }
+
+    // MARK: - Background
+
+    private var background: some View {
+        ZStack {
+            Color(nsColor: .windowBackgroundColor)
+            // A warm pool of light behind the clamp; brightens when files hover.
+            RadialGradient(colors: [Color.accentColor.opacity(isTargeted ? 0.30 : 0.13), .clear],
+                           center: UnitPoint(x: 0.5, y: 0.3), startRadius: 0, endRadius: 280)
+                .animation(.easeOut(duration: 0.25), value: isTargeted)
+        }
+        .ignoresSafeArea()
+    }
+
+    // MARK: - Ready / squishing
+
+    private var main: some View {
+        VStack(spacing: 0) {
+            Button(action: chooseFiles) {
+                ClampView(squeeze: squeeze, twist: twist, photoScale: photoScale)
+                    .frame(height: 170)
+                    .padding(.top, 34)
+            }
+            .buttonStyle(.plain)
+            .onHover { hoveringHero = $0 }
+            .accessibilityLabel("Choose images to squish")
+            .help("Choose images to squish")
+
+            caption
+                .frame(height: 64)
+                .padding(.top, 14)
 
             Spacer(minLength: 0)
-            Divider()
-            bottomBar
+
+            tray
                 .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .frame(maxWidth: .infinity)
-                .background(.bar)
+                .padding(.bottom, 16)
+        }
+        .animation(heroSpring, value: squeeze)
+        .animation(heroSpring, value: photoScale)
+        .onChange(of: runner.completed) { _, _ in
+            guard runner.isRunning, !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 0.35)) { twist += .pi }
         }
     }
 
-    private var bottomBar: some View {
-        HStack(spacing: 12) {
-            FormatControl()
-            Spacer(minLength: 8)
-            OutputLocationMenu()
+    private var squeeze: Double {
+        if runner.isRunning { return 1 }
+        if isTargeted { return 0.55 }
+        if let preview = editor.preview { return preview.squeeze ?? 0 }
+        return hoveringHero ? 0.12 : 0
+    }
+
+    private var photoScale: Double {
+        runner.isRunning ? 1 : editor.preview?.photoScale ?? 1
+    }
+
+    private var heroSpring: Animation {
+        reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.42, dampingFraction: 0.62)
+    }
+
+    @ViewBuilder private var caption: some View {
+        VStack(spacing: 6) {
+            if runner.isRunning {
+                Text(runner.totalFiles == 1 ? "Squishing…" : "Squishing \(min(runner.completed + 1, runner.totalFiles)) of \(runner.totalFiles)…")
+                    .font(.title2.weight(.semibold))
+                    .contentTransition(.numericText())
+                    .animation(.snappy, value: runner.completed)
+                Text(runner.currentFile)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .frame(maxWidth: 320)
+            } else if let preview = editor.preview, !isTargeted {
+                // Narrates whatever is highlighted in an open recipe menu.
+                Text(preview.title)
+                    .font(.title2.weight(.semibold))
+                Text(preview.detail)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text(isTargeted ? "Let go to squish" : "Drop images to squish")
+                    .font(.title2.weight(.semibold))
+                    .contentTransition(.interpolate)
+                Text("Photos, a folder, or a whole pile · \(Text("⌘O").foregroundStyle(.tertiary)) to browse")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
         }
+        .animation(.easeOut(duration: 0.15), value: isTargeted)
     }
 
-    // MARK: - Drop handling
-
-    private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
-        let relevant = providers.filter { $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) }
-        guard !relevant.isEmpty else { return false }
-        loadURLs(from: relevant) { urls in accept(urls) }
-        return true
+    @ViewBuilder private var tray: some View {
+        Group {
+            if runner.isRunning {
+                HStack(spacing: 14) {
+                    ProgressView(value: runner.progress)
+                        .progressViewStyle(.linear)
+                        .tint(.accentColor)
+                    Button("Cancel") { runner.cancel() }
+                        .keyboardShortcut(.cancelAction)
+                }
+                .padding(.horizontal, 20)
+            } else {
+                RecipeSentence()
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 88)
+        .trayBackground()
     }
 
-    private func addFromPanel() {
-        accept(Platform.chooseInputs())
-    }
+    // MARK: - Input
 
-    private func accept(_ urls: [URL]) {
-        guard let input = DropInput.classify(urls) else { return }
-        if runner.hasFinished { runner.reset() }
-        runner.run(input: input, settings: settings)
+    private func chooseFiles() {
+        guard !runner.isRunning else { return }
+        let urls = Platform.chooseInputs()
+        guard !urls.isEmpty else { return }
+        runner.accept(urls, settings: settings)
     }
 
     private func loadURLs(from providers: [NSItemProvider], completion: @escaping ([URL]) -> Void) {
         let group = DispatchGroup()
         let lock = NSLock()
         var urls: [URL] = []
-        for provider in providers {
+        for provider in providers where provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
             group.enter()
             provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
                 var resolved: URL?
@@ -109,59 +171,17 @@ struct ContentView: View {
     }
 }
 
-// MARK: - Format (bottom bar, left)
-
-private struct FormatControl: View {
-    @EnvironmentObject private var settings: SquishSettings
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "photo").font(.callout).foregroundStyle(.secondary)
-            Picker("", selection: $settings.format) {
-                ForEach(OutputFormat.allCases) { Text($0.displayName).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .fixedSize()
-        }
-    }
-}
-
-// MARK: - Output location (bottom bar, right)
-
-private struct OutputLocationMenu: View {
-    @EnvironmentObject private var settings: SquishSettings
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Text("Save to").font(.callout).foregroundStyle(.secondary)
-            Menu {
-                Button {
-                    settings.outputMode = .auto
-                } label: {
-                    Label("Auto — beside originals", systemImage: "wand.and.stars")
-                }
-                Button {
-                    if let url = Platform.chooseFolder() {
-                        settings.chosenFolderPath = url.path
-                        settings.outputMode = .choose
-                    }
-                } label: {
-                    Label(settings.chosenFolder == nil ? "Choose Folder…" : "Change Folder…",
-                          systemImage: "folder")
-                }
-            } label: {
-                Label(labelText, systemImage: settings.outputMode == .auto ? "wand.and.stars" : "folder")
-            }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
-        }
-    }
-
-    private var labelText: String {
-        switch settings.outputMode {
-        case .auto:   return "Auto Location"
-        case .choose: return settings.chosenFolder?.lastPathComponent ?? "Choose Folder…"
+extension View {
+    /// The rounded tray that holds the recipe and the progress bar. Liquid Glass
+    /// on macOS 26, a quiet material before that.
+    @ViewBuilder func trayBackground() -> some View {
+        let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
+        if #available(macOS 26.0, *) {
+            self.glassEffect(.regular, in: shape)
+        } else {
+            self
+                .background(shape.fill(.regularMaterial))
+                .overlay(shape.strokeBorder(Color.primary.opacity(0.08)))
         }
     }
 }

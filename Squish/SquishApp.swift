@@ -2,24 +2,126 @@ import SwiftUI
 
 @main
 struct SquishApp: App {
-    @StateObject private var settings = SquishSettings()
-    @StateObject private var runner = JobRunner()
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var app
 
     var body: some Scene {
         Window("Squish", id: "main") {
             ContentView()
-                .environmentObject(settings)
-                .environmentObject(runner)
-                .frame(width: 500, height: 420)
+                .environmentObject(app.settings)
+                .environmentObject(app.runner)
+                .environmentObject(app.editor)
+                .frame(width: 480, height: 440)
         }
+        .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
         .commands {
-            CommandGroup(replacing: .newItem) {}
+            SquishCommands(settings: app.settings, runner: app.runner, editor: app.editor)
         }
 
         Settings {
             SquishSettingsView()
-                .environmentObject(settings)
+                .environmentObject(app.settings)
+        }
+    }
+}
+
+/// Owns the app's state so files can arrive before (or without) the window:
+/// the Dock icon, Open With, and Finder's Services menu all land here.
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    let settings = SquishSettings()
+    let runner = JobRunner()
+    let editor = RecipeEditor()
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.servicesProvider = self
+        NSUpdateDynamicServices()
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        squish(urls)
+    }
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        if !runner.isRunning { NSApp.dockTile.badgeLabel = nil }
+    }
+
+    /// Services menu: "Squish Images" (NSMessage `squishFiles` in Info.plist).
+    @objc func squishFiles(_ pboard: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString?>) {
+        let urls = pboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+        squish(urls)
+        NSApp.activate()
+    }
+
+    private func squish(_ urls: [URL]) {
+        if runner.hasFinished { runner.reset() }
+        runner.accept(urls, settings: settings)
+    }
+}
+
+struct SquishCommands: Commands {
+    @ObservedObject var settings: SquishSettings
+    @ObservedObject var runner: JobRunner
+    @ObservedObject var editor: RecipeEditor
+
+    var body: some Commands {
+        CommandGroup(replacing: .newItem) {
+            Button("Squish Images…") {
+                let urls = Platform.chooseInputs()
+                if runner.hasFinished { runner.reset() }
+                runner.accept(urls, settings: settings)
+            }
+            .keyboardShortcut("o")
+            .disabled(runner.isRunning)
+        }
+        CommandGroup(after: .newItem) {
+            Divider()
+            Button("Show in Finder") { Platform.reveal(runner.outputs) }
+                .keyboardShortcut("r")
+                .disabled(runner.outputs.isEmpty)
+            Button("Stop Squishing") { runner.cancel() }
+                .keyboardShortcut(".")
+                .disabled(!runner.isRunning)
+        }
+        CommandMenu("Recipe") {
+            ForEach(RecipeField.allCases) { field in
+                RecipeMenu(field: field, settings: settings, editor: editor)
+            }
+        }
+    }
+}
+
+/// A Recipe submenu built from the same options as the sentence's pop-ups.
+private struct RecipeMenu: View {
+    let field: RecipeField
+    @ObservedObject var settings: SquishSettings
+    @ObservedObject var editor: RecipeEditor
+    @Environment(\.openSettings) private var openSettings
+
+    var body: some View {
+        Menu(field.title) {
+            let actions = RecipeActions(
+                editCustom: { editor.editing = $0 },
+                editPresets: { field in
+                    SettingsTab.select(field == .size ? .sizes : .pixels)
+                    openSettings()
+                })
+            ForEach(settings.options(for: field, style: .menuBar, actions: actions)) { option in
+                switch option.kind {
+                case .separator:
+                    Divider()
+                case .command:
+                    Button(option.title, action: option.action)
+                case .choice:
+                    Toggle(isOn: Binding(get: { option.checked }, set: { _ in option.action() })) {
+                        Text(option.detail.map { "\(option.title) (\($0))" } ?? option.title)
+                    }
+                case .submenu, .dial:
+                    EmptyView()  // Only used by the pop-up style.
+                }
+            }
         }
     }
 }

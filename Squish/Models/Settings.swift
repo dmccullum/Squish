@@ -59,6 +59,12 @@ enum SizeUnit: String, CaseIterable, Identifiable, Codable {
     case kb = "KB", mb = "MB"
     var id: String { rawValue }
     var multiplier: Int { self == .mb ? 1_000_000 : 1_000 }
+
+    /// "1 MB", "2.5 MB", "500 KB".
+    static func label(_ value: Double, _ unit: SizeUnit) -> String {
+        let v = value.rounded() == value ? String(Int(value)) : String(value)
+        return "\(v) \(unit.rawValue)"
+    }
 }
 
 /// How a multi-image batch is compressed.
@@ -95,11 +101,8 @@ struct SizePreset: Identifiable, Codable, Equatable, Hashable {
     var name: String
     var value: Double
     var unit: SizeUnit
-    var bytes: Int { Int(value) * unit.multiplier }
-    var valueLabel: String {
-        let v = value.rounded() == value ? String(Int(value)) : String(value)
-        return "\(v) \(unit.rawValue)"
-    }
+    var bytes: Int { Int((value * Double(unit.multiplier)).rounded()) }
+    var valueLabel: String { SizeUnit.label(value, unit) }
 }
 
 /// User-facing, persisted configuration. Backed by `UserDefaults`.
@@ -130,15 +133,13 @@ final class SquishSettings: ObservableObject {
     @Published var strategy: CompressionStrategy      { didSet { save() } }
     @Published var dimensionPresets: [DimensionPreset] { didSet { save() } }
     @Published var sizePresets: [SizePreset]           { didSet { save() } }
+    @Published var playSound: Bool                     { didSet { save() } }
 
     /// Default auto-naming suffix for single files and containers.
     let suffix = " (squished)"
 
-    /// Format always applies, so there's always something to do.
-    var isActionable: Bool { true }
-
     /// Target size in bytes (decimal KB/MB to match Finder's display).
-    var targetBytes: Int { Int(sizeValue) * sizeUnit.multiplier }
+    var targetBytes: Int { Int((sizeValue * Double(sizeUnit.multiplier)).rounded()) }
 
     var chosenFolder: URL? {
         chosenFolderPath.isEmpty ? nil : URL(fileURLWithPath: chosenFolderPath, isDirectory: true)
@@ -154,6 +155,7 @@ final class SquishSettings: ObservableObject {
             "fitWidth": 1920, "fitHeight": 1080,
             // First run: File size on (1 MB). Format always applies.
             "sizeTargetEnabled": true,
+            "playSound": true,
         ])
         sizeTargetEnabled = d.bool(forKey: "sizeTargetEnabled")
         sizeValue        = d.double(forKey: "sizeValue")
@@ -171,8 +173,9 @@ final class SquishSettings: ObservableObject {
         strategy         = CompressionStrategy(rawValue: d.string(forKey: "strategy") ?? "") ?? .prioritizeSize
         dimensionPresets = Self.decode([DimensionPreset].self, d.data(forKey: "dimensionPresets"))
             ?? SquishSettings.defaultDimensionPresets
-        sizePresets      = Self.decode([SizePreset].self, d.data(forKey: "sizePresets"))
-            ?? SquishSettings.defaultSizePresets
+        sizePresets      = Self.migrated(Self.decode([SizePreset].self, d.data(forKey: "sizePresets"))
+            ?? SquishSettings.defaultSizePresets)
+        playSound        = d.bool(forKey: "playSound")
     }
 
     static let defaultDimensionPresets: [DimensionPreset] = [
@@ -183,7 +186,7 @@ final class SquishSettings: ObservableObject {
         .init(name: "Thumbnail", pixels: 640),
     ]
     static let defaultSizePresets: [SizePreset] = [
-        .init(name: "Canva", value: 50, unit: .mb),
+        .init(name: "Uploads", value: 50, unit: .mb),
         .init(name: "Print", value: 25, unit: .mb),
         .init(name: "Email", value: 5, unit: .mb),
         .init(name: "Web", value: 1, unit: .mb),
@@ -193,6 +196,16 @@ final class SquishSettings: ObservableObject {
     /// Presets sorted largest → smallest for display.
     var sortedSizePresets: [SizePreset] { sizePresets.sorted { $0.bytes > $1.bytes } }
     var sortedDimensionPresets: [DimensionPreset] { dimensionPresets.sorted { $0.pixels > $1.pixels } }
+
+    /// "Canva · 50 MB" was Canva's upload ceiling, not a recommendation; it
+    /// shipped under that name before 2026-10, so rename untouched copies.
+    private static func migrated(_ presets: [SizePreset]) -> [SizePreset] {
+        presets.map { p in
+            var p = p
+            if p.name == "Canva", p.bytes == 50_000_000 { p.name = "Uploads" }
+            return p
+        }
+    }
 
     private static func decode<T: Decodable>(_ type: T.Type, _ data: Data?) -> T? {
         guard let data else { return nil }
@@ -216,5 +229,6 @@ final class SquishSettings: ObservableObject {
         d.set(strategy.rawValue, forKey: "strategy")
         d.set(try? JSONEncoder().encode(dimensionPresets), forKey: "dimensionPresets")
         d.set(try? JSONEncoder().encode(sizePresets), forKey: "sizePresets")
+        d.set(playSound, forKey: "playSound")
     }
 }

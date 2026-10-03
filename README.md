@@ -1,50 +1,66 @@
 # Squish
 
-A fast, fun, drop-focused macOS app for compressing images to a target **file size**, **dimension**, and/or **format**. Native SwiftUI — no dependencies.
+A small, drop-focused Mac app that squishes images to a target **file size**, **dimension**, and **format**. Native SwiftUI, no dependencies.
 
 ![Squish](Squish/Assets.xcassets/AppIcon.appiconset/icon_256.png)
 
-## What it does
+## Using it
 
-Drop an image, a bunch of images, or a whole folder. Squish processes them according to up to three optional targets (use any combination — at least one must be on):
+Drop images, a pile of them, or a whole folder onto the window, onto Squish in the Dock, or use **Squish Images** from Finder's Quick Actions / Services menu. ⌘O works too.
 
-- **File size** — squish each image to ~a target size or smaller (KB/MB).
-- **Dimensions** — max long side, max width, max height, or fit-within W×H. Images smaller than the limit are left alone.
-- **Format** — convert to JPEG or HEIC.
+The window reads like an instruction:
 
-Each control is a tile with quick-pick presets; choose **popovers + sliders** or **rotary dials** in Settings. Output is never upscaled, and a re-encode that would only grow a file keeps the original instead.
+> Make them **under 1 MB** and **max 2048 px**, then save as **JPEG** **next to the originals**.
 
-### Output placement
-- **Auto** (mirrors how the drop arrived):
-  - a single image → saved beside the original as `name (squished).ext`
-  - several items → a `Squished` folder in their common parent
-  - a folder → a sibling `<name> (squished)` folder, structure preserved
-- **Choose…** — pick one destination folder for everything.
+Each orange phrase is a pop-up menu. **File size** and **Dimensions** open on a live dial: drag the slider and the value applies immediately while the menu stays open, with the clamp in the window acting it out. Presets live one level down, in a Presets submenu and as detents on the slider.
+
+- **File size**: any size, or drag to any limit. Presets: Uploads 50 MB, Print 25 MB, Email 5 MB, Web 1 MB, Small 500 KB.
+- **Dimensions**: any size, or drag a long-side, width or height limit; **Fit Within a Box…** sets both. Images are never upscaled.
+- **Format**: JPEG (opens anywhere) or HEIC (smaller, best on Apple devices).
+- **Save to**: next to the originals, or a folder you choose.
+
+The same choices live in the **Recipe** menu in the menu bar.
+
+### Where files go
+With **next to the originals**, output mirrors how the drop arrived:
+- a single image → `name (squished).jpg` beside it
+- several items → a `Squished` folder in their common parent
+- a folder → a sibling `<name> (squished)` folder, structure preserved
+
+With a chosen folder, everything goes there (dropped folders keep their structure).
+
+### When it's done
+Results list each file with before and after sizes. Drag rows straight into Mail or Slack, press Space for Quick Look, double-click to open, or ⌘R to show them in Finder. ⌘. stops a batch. If you've switched away, the Dock icon badges and bounces when a batch finishes, with an optional pop.
 
 ## How it works
-- Reads anything ImageIO supports (incl. WebP, PNG); writes JPEG / HEIC. Inputs that aren't already JPEG/HEIC convert to your **default format** (Settings → General).
-- **File-size targeting** binary-searches encoder quality, then downscales if the quality floor still overshoots.
-- **Batches** either hit the target per-image, or *match quality across the batch* (Settings) — the quality that lands the heaviest image on target is applied to all so they look consistent.
-- **Settings** (⌘,): default format, batch strategy, control style, plus editable **pixel-size** and **file-size** presets.
-- Batches run concurrently across CPU cores; failures are per-file and never abort the batch.
+- Reads anything ImageIO supports (including WebP and PNG); writes JPEG or HEIC.
+- **File-size targeting** binary-searches encoder quality, then downscales if the lowest quality still overshoots.
+- **Batches** either hit the target per image, or *match quality across the batch* (Settings): the quality that lands the heaviest image on target is applied to all, so they look consistent.
+- A re-encode that would only grow a file keeps the original bytes instead.
+- Batches run concurrently across CPU cores; failures are per file and never abort the batch.
+- **Settings** (⌘,): batch strategy, finish sound, and editable pixel-size and file-size presets.
 
 ## Build & run
 ```sh
 xcodebuild -project Squish.xcodeproj -scheme Squish -configuration Debug build
 ```
-Or open `Squish.xcodeproj` in Xcode and hit Run. Requires macOS 14+ / Xcode 16+ (uses a filesystem-synchronized project group, so new files in `Squish/` are picked up automatically).
+Or open `Squish.xcodeproj` in Xcode and hit Run. Requires macOS 14+ and Xcode 26 (the app icon is an Icon Composer `.icon`). New files in `Squish/` are picked up automatically (filesystem-synchronized group). Document types and the Services entry live in `Config/Info.plist`.
 
 The app is **not sandboxed** (personal/direct distribution) so it can write next to originals.
+
+## Icon
+`Squish/Squish.icon` is a layered Icon Composer file: an orange clamp squeezing a dusk-lit photo, with light, dark and tinted variants of the handle. The layers are generated by the scripts in `Icon/Source` (`python3 final.py` writes `Squish.icon` next to it). The window's animated clamp (`ClampView`) uses the same geometry and palette. Previous icons are kept in `Icon/` for reference.
 
 ## Project layout
 ```
 Squish/
-  SquishApp.swift            App entry, single window
-  Models/                    Settings, DropInput classification, JobResult
-  Core/                      ImageCompressor, OutputPlanner, JobRunner
-  Views/                     ContentView, DropZone, Controls, Processing, Results
-  Assets.xcassets/           App icon + accent color
+  SquishApp.swift        App, app delegate (Dock / Open With / Services), menu commands
+  Models/                Settings, Recipe (sentence phrases + menu options), DropInput, JobResult
+  Core/                  ImageCompressor, OutputPlanner, JobRunner
+  Views/                 ContentView, ClampView, RecipeView, ResultsView, SettingsView
+Config/Info.plist        Document types and Services
+Icon/                    Icon sources and history
 ```
 
 ## Possible follow-ons
-WebP **output** (needs a bundled encoder like libwebp), App Sandbox / Mac App Store packaging + notarization, saved presets, a CLI.
+A Shortcuts action (App Intents), WebP **output** (needs a bundled encoder like libwebp), App Sandbox / Mac App Store packaging and notarization.
