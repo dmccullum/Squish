@@ -1,14 +1,28 @@
 import SwiftUI
 
+/// Settings tabs, remembered so "Edit Presets…" can jump straight to one.
+enum SettingsTab: String {
+    case general, pixels, sizes
+
+    static func select(_ tab: SettingsTab) {
+        UserDefaults.standard.set(tab.rawValue, forKey: "settingsTab")
+    }
+}
+
 struct SquishSettingsView: View {
+    @AppStorage("settingsTab") private var tab = SettingsTab.general.rawValue
+
     var body: some View {
-        TabView {
+        TabView(selection: $tab) {
             GeneralPane()
                 .tabItem { Label("General", systemImage: "gearshape") }
+                .tag(SettingsTab.general.rawValue)
             DimensionPresetsPane()
                 .tabItem { Label("Pixel Sizes", systemImage: "aspectratio") }
+                .tag(SettingsTab.pixels.rawValue)
             SizePresetsPane()
                 .tabItem { Label("File Sizes", systemImage: "scalemass") }
+                .tag(SettingsTab.sizes.rawValue)
         }
         .frame(width: 500, height: 380)
     }
@@ -30,6 +44,9 @@ private struct GeneralPane: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+            Section("When a batch finishes") {
+                Toggle("Play a sound", isOn: $settings.playSound)
             }
         }
         .formStyle(.grouped)
@@ -54,7 +71,7 @@ private struct DimensionPresetsPane: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Quick-pick pixel sizes shown in the Dimensions control (applied as a max long side). Sorted largest to smallest.")
+            Text("Shown in the Dimensions menu and applied to the longest side. Sorted largest to smallest.")
                 .font(.callout).foregroundStyle(.secondary)
                 .padding([.horizontal, .top], 16)
                 .padding(.bottom, 8)
@@ -106,7 +123,7 @@ private struct SizePresetsPane: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Quick-pick file-size limits shown in the File size control. Sorted largest to smallest.")
+            Text("Shown in the File Size menu. Sorted largest to smallest.")
                 .font(.callout).foregroundStyle(.secondary)
                 .padding([.horizontal, .top], 16)
                 .padding(.bottom, 8)

@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import UniformTypeIdentifiers
 
 /// Orchestrates a batch squish: expands the drop, plans destinations,
@@ -13,11 +13,27 @@ final class JobRunner: ObservableObject {
     @Published var hasFinished = false
     @Published var revealRoot: URL?
     @Published var emptyDrop = false
+    @Published var completed = 0
+    @Published var wasCancelled = false
 
     private let fm = FileManager.default
+    private var task: Task<Void, Never>?
+
+    /// The single entry point for files from anywhere: drops, ⌘O, the Dock,
+    /// Open With and the Services menu.
+    func accept(_ urls: [URL], settings: SquishSettings) {
+        guard !isRunning else { NSSound.beep(); return }
+        guard let input = DropInput.classify(urls) else { return }
+        run(input: input, settings: settings)
+    }
+
+    func cancel() {
+        task?.cancel()
+    }
 
     func run(input: DropInput, settings: SquishSettings) {
         guard !isRunning else { return }
+        let playSound = settings.playSound
 
         let request = CompressionRequest(settings)
         let strategy = settings.strategy
@@ -42,25 +58,51 @@ final class JobRunner: ObservableObject {
 
         emptyDrop = false
         hasFinished = false
+        wasCancelled = false
         isRunning = true
         progress = 0
+        completed = 0
         totalFiles = jobs.count
         results = []
-        currentFile = ""
+        currentFile = jobs.first?.source.lastPathComponent ?? ""
+        updateDockBadge()
 
-        Task.detached(priority: .userInitiated) {
+        task = Task.detached(priority: .userInitiated) {
             let collected = await JobRunner.process(jobs: jobs, request: request, strategy: strategy) { done, total, name in
                 await MainActor.run {
+                    self.completed = done
                     self.progress = Double(done) / Double(max(total, 1))
                     self.currentFile = name
+                    self.updateDockBadge()
                 }
             }
+            let cancelled = Task.isCancelled
             await MainActor.run {
                 self.results = collected
+                self.wasCancelled = cancelled
                 self.isRunning = false
                 self.hasFinished = true
                 self.progress = 1
+                self.task = nil
+                self.finish(playSound: playSound && !cancelled)
             }
+        }
+    }
+
+    // MARK: - Dock & sound
+
+    private func updateDockBadge() {
+        let tile = NSApp.dockTile
+        tile.badgeLabel = isRunning && totalFiles > 1 ? "\(completed)/\(totalFiles)" : nil
+    }
+
+    private func finish(playSound: Bool) {
+        NSApp.dockTile.badgeLabel = nil
+        if playSound { NSSound(named: "Pop")?.play() }
+        if !NSApp.isActive {
+            // Let people know a long batch finished while they were elsewhere.
+            NSApp.dockTile.badgeLabel = "✓"
+            NSApp.requestUserAttention(.informationalRequest)
         }
     }
 
@@ -68,10 +110,15 @@ final class JobRunner: ObservableObject {
         results = []
         hasFinished = false
         emptyDrop = false
+        wasCancelled = false
         progress = 0
+        completed = 0
         currentFile = ""
         revealRoot = nil
     }
+
+    /// Successfully written files, for Show in Finder.
+    var outputs: [URL] { results.filter(\.isSuccess).compactMap(\.output) }
 
     // MARK: - Batch processing (off the main actor)
 
@@ -103,7 +150,7 @@ final class JobRunner: ObservableObject {
 
         await withTaskGroup(of: JobResult.self) { group in
             func addNext() {
-                guard index < jobs.count else { return }
+                guard index < jobs.count, !Task.isCancelled else { return }
                 let job = jobs[index]
                 index += 1
                 group.addTask { processOne(job, request: request, overrideQuality: overrideQuality) }
