@@ -129,7 +129,7 @@ final class ClosureMenuItem: NSMenuItem {
 
 /// The live control at the top of the File Size and Dimensions menus: a mini
 /// clamp, the value in big type, and a log-scale slider with detents at the
-/// presets. Dragging applies immediately, like the volume slider in Control
+/// presets and an orange "no limit" dot at its far end. Dragging applies immediately, like the volume slider in Control
 /// Center, and the menu stays open.
 @MainActor
 final class RecipeDialView: NSView {
@@ -150,6 +150,10 @@ final class RecipeDialView: NSView {
     /// Distance from the slider's edge to the centre of its knob at either end.
     private static let knobInset: CGFloat = 10
     private static let snapWindow = 0.022
+    /// The slider position of the largest limit; past it, the track ends at "Any".
+    private static let limitEnd = 0.9
+    /// Slider positions beyond this snap to "Any"; between it and `limitEnd`, to the largest limit.
+    private static let anyThreshold = 0.95
 
     override var isFlipped: Bool { true }
 
@@ -172,6 +176,9 @@ final class RecipeDialView: NSView {
         min(1, max(0, (log(max(v, 1)) - range.lo) / (range.hi - range.lo)))
     }
     private func value(at f: Double) -> Double { exp(range.lo + f * (range.hi - range.lo)) }
+    /// Where a limit sits on the slider, leaving the far end for "Any".
+    private func position(_ v: Double) -> Double { fraction(v) * Self.limitEnd }
+    private func value(atPosition p: Double) -> Double { value(at: min(p, Self.limitEnd) / Self.limitEnd) }
 
     private var presetValues: [(name: String, value: Double)] {
         isSize ? settings.sortedSizePresets.map { ($0.name, Double($0.bytes)) }
@@ -211,13 +218,7 @@ final class RecipeDialView: NSView {
             y += 32
         }
 
-        // The orange dot at the start of the track means "no limit".
-        anyDot.frame = NSRect(x: x, y: y, width: 20, height: 20)
-        anyDot.label = isSize ? "Any file size" : "Any dimensions"
-        anyDot.onClick = { [weak self] in self?.chooseAny() }
-        addSubview(anyDot)
-
-        slider.frame = NSRect(x: x + 24, y: y, width: w - 24, height: 20)
+        slider.frame = NSRect(x: x, y: y, width: w, height: 20)
         slider.isContinuous = true
         // Menus never become key, so the default fill would draw grey.
         slider.trackFillColor = NSColor(named: "AccentColor")
@@ -232,21 +233,37 @@ final class RecipeDialView: NSView {
             tick.wantsLayer = true
             tick.layer?.backgroundColor = NSColor.tertiaryLabelColor.cgColor
             tick.layer?.cornerRadius = 1
-            let track = slider.frame.width - Self.knobInset * 2
-            tick.frame.origin.x = slider.frame.minX + Self.knobInset + fraction(preset.value) * track - 1
+            tick.frame.origin.x = trackX(position(preset.value)) - 1
             addSubview(tick)
         }
+
+        // The orange dot at the end of the track means "no limit".
+        anyDot.frame = NSRect(x: trackX(1) - 8, y: y + 20, width: 16, height: 10)
+        anyDot.label = isSize ? "Any file size" : "Any dimensions"
+        anyDot.onClick = { [weak self] in self?.chooseAny() }
+        addSubview(anyDot)
+    }
+
+    /// The x coordinate of the knob's centre at a slider position.
+    private func trackX(_ p: Double) -> CGFloat {
+        slider.frame.minX + Self.knobInset + p * (slider.frame.width - Self.knobInset * 2)
     }
 
     // MARK: Actions
 
     @objc private func sliderChanged() {
-        var v = value(at: slider.doubleValue)
+        if slider.doubleValue > Self.anyThreshold {
+            slider.doubleValue = 1
+            if isOn { chooseAny() }
+            return
+        }
+        if slider.doubleValue > Self.limitEnd { slider.doubleValue = Self.limitEnd }
+        var v = value(atPosition: slider.doubleValue)
         var snap: (name: String, value: Double)?
-        for p in presetValues where abs(fraction(p.value) - slider.doubleValue) < Self.snapWindow { snap = p }
+        for p in presetValues where abs(position(p.value) - slider.doubleValue) < Self.snapWindow { snap = p }
         if let snap {
             v = snap.value
-            slider.doubleValue = fraction(v)
+            slider.doubleValue = position(v)
             if snapped != snap.name {
                 NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
             }
@@ -261,6 +278,7 @@ final class RecipeDialView: NSView {
     private func chooseAny() {
         if isSize { settings.sizeTargetEnabled = false } else { settings.dimensionEnabled = false }
         snapped = nil
+        slider.doubleValue = 1
         NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
         sync(fromSettings: false)
         context.preview(currentPreview)
@@ -268,9 +286,9 @@ final class RecipeDialView: NSView {
 
     @objc private func modeChanged() {
         guard let mode else { return }
-        let px = settings.dimensionEnabled ? settings.activePixels : Int(value(at: slider.doubleValue))
+        let px = settings.activePixels
         settings.dimensionMode = [.maxLongSide, .maxWidth, .maxHeight][max(mode.selectedSegment, 0)]
-        setPixels(px, preset: nil)
+        if settings.dimensionEnabled { setPixels(px, preset: nil) }
         sync(fromSettings: true)
         context.preview(currentPreview)
     }
@@ -309,7 +327,7 @@ final class RecipeDialView: NSView {
 
     private func sync(fromSettings: Bool) {
         if fromSettings {
-            slider.doubleValue = fraction(currentValue)
+            slider.doubleValue = isOn ? position(currentValue) : 1
             snapped = presetValues.first { abs($0.value - currentValue) < 1 && (isSize || settings.dimensionMode == .maxLongSide) }?.name
         }
         if let mode {
@@ -322,7 +340,6 @@ final class RecipeDialView: NSView {
         }
         updateCheckmarks()
         anyDot.isOn = !isOn
-        slider.alphaValue = isOn ? 1 : 0.45
         let p = currentPreview
         big.stringValue = p.title
         why.stringValue = p.detail
@@ -349,7 +366,7 @@ final class RecipeDialView: NSView {
         if let snapped, isOn {
             detail = "\(snapped) preset · " + (isSize ? PresetInfo.blurb(size: snapped) : PresetInfo.blurb(pixels: snapped))
         } else {
-            detail = isOn ? "Drag for any size, or tap the dot for no limit" : "Drag to set a limit"
+            detail = isOn ? "Drag to the dot at the end for no limit" : "Drag left to set a limit"
         }
         if isSize {
             return RecipePreview(squeeze: isOn ? RecipeScale.squeeze(bytes: settings.targetBytes) : 0,
@@ -360,7 +377,7 @@ final class RecipeDialView: NSView {
     }
 }
 
-/// The "no limit" switch at the start of the dial's track: a solid orange dot
+/// The "no limit" detent at the end of the dial's track: a solid orange dot
 /// when there's no limit, a ring when there is one.
 @MainActor
 final class AnyDot: NSView {
@@ -394,20 +411,20 @@ final class AnyDot: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         let orange = NSColor(named: "AccentColor") ?? .systemOrange
-        let d: CGFloat = hovering ? 14 : 12
+        let d: CGFloat = hovering ? 9 : 7
         let rect = NSRect(x: (bounds.width - d) / 2, y: (bounds.height - d) / 2, width: d, height: d)
         if isOn {
             let glow = NSShadow()
             glow.shadowColor = orange.withAlphaComponent(0.6)
-            glow.shadowBlurRadius = 4
+            glow.shadowBlurRadius = 3
             glow.set()
             orange.setFill()
             NSBezierPath(ovalIn: rect).fill()
         } else {
             orange.withAlphaComponent(hovering ? 0.35 : 0.15).setFill()
             NSBezierPath(ovalIn: rect).fill()
-            let ring = NSBezierPath(ovalIn: rect.insetBy(dx: 0.75, dy: 0.75))
-            ring.lineWidth = 1.5
+            let ring = NSBezierPath(ovalIn: rect.insetBy(dx: 0.5, dy: 0.5))
+            ring.lineWidth = 1
             orange.setStroke()
             ring.stroke()
         }
