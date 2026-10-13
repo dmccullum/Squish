@@ -14,7 +14,9 @@ write_icon(out, [
         {'name': 'screw', 'svg': screw}]},
     {'name': 'Frame', 'shadow': {'kind': 'layer-color', 'opacity': 0.5},
      'layers': [{'name': 'frame', 'svg': svg(f'<path d="{C_FRAME}"/>'),
-                 'fill': grad('display-p3:1.0,0.58,0.22,1', 'display-p3:0.95,0.30,0.16,1', 0, 1)}]},
+                 'fill-specializations': [
+                     {'value': lin('display-p3:0.96,0.97,0.98,1', 'display-p3:0.70,0.72,0.76,1')},
+                     {'appearance': 'dark', 'value': lin('display-p3:1.0,0.58,0.22,1', 'display-p3:0.95,0.30,0.16,1')}]}]},
     *photo_groups(barrel(*C_BOX, 30, 22), C_BOX),
-], grad('display-p3:1,0.985,0.97,1', 'display-p3:0.92,0.90,0.88,1', 0, 1))
+], grad('display-p3:1.0,0.58,0.22,1', 'display-p3:0.95,0.30,0.16,1', 0, 1))
 print('ok')

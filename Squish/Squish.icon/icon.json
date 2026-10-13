@@ -1,8 +1,8 @@
 {
   "fill": {
     "linear-gradient": [
-      "display-p3:1,0.985,0.97,1",
-      "display-p3:0.92,0.90,0.88,1"
+      "display-p3:1.0,0.58,0.22,1",
+      "display-p3:0.95,0.30,0.16,1"
     ],
     "orientation": {
       "start": {
@@ -102,22 +102,45 @@
         {
           "name": "frame",
           "image-name": "frame.svg",
-          "fill": {
-            "linear-gradient": [
-              "display-p3:1.0,0.58,0.22,1",
-              "display-p3:0.95,0.30,0.16,1"
-            ],
-            "orientation": {
-              "start": {
-                "x": 0.5,
-                "y": 0
-              },
-              "stop": {
-                "x": 0.5,
-                "y": 1
+          "fill-specializations": [
+            {
+              "value": {
+                "linear-gradient": [
+                  "display-p3:0.96,0.97,0.98,1",
+                  "display-p3:0.70,0.72,0.76,1"
+                ],
+                "orientation": {
+                  "start": {
+                    "x": 0.5,
+                    "y": 0
+                  },
+                  "stop": {
+                    "x": 0.5,
+                    "y": 1
+                  }
+                }
+              }
+            },
+            {
+              "appearance": "dark",
+              "value": {
+                "linear-gradient": [
+                  "display-p3:1.0,0.58,0.22,1",
+                  "display-p3:0.95,0.30,0.16,1"
+                ],
+                "orientation": {
+                  "start": {
+                    "x": 0.5,
+                    "y": 0
+                  },
+                  "stop": {
+                    "x": 0.5,
+                    "y": 1
+                  }
+                }
               }
             }
-          }
+          ]
         }
       ],
       "shadow": {
