@@ -1,4 +1,4 @@
-import os, sys
+import os, sys, json
 here = os.path.dirname(os.path.abspath(__file__))
 exec(open(os.path.join(here, 'clamps.py')).read().split("# 1 · Frosted glass")[0])
 out = sys.argv[1] if len(sys.argv) > 1 else 'Squish'
@@ -15,8 +15,13 @@ write_icon(out, [
     {'name': 'Frame', 'shadow': {'kind': 'layer-color', 'opacity': 0.5},
      'layers': [{'name': 'frame', 'svg': svg(f'<path d="{C_FRAME}"/>'),
                  'fill-specializations': [
-                     {'value': lin('display-p3:0.96,0.97,0.98,1', 'display-p3:0.70,0.72,0.76,1')},
+                     {'value': lin('display-p3:0.40,0.41,0.45,1', 'display-p3:0.20,0.20,0.23,1')},
                      {'appearance': 'dark', 'value': lin('display-p3:1.0,0.58,0.22,1', 'display-p3:0.95,0.30,0.16,1')}]}]},
     *photo_groups(barrel(*C_BOX, 30, 22), C_BOX),
 ], grad('display-p3:1.0,0.58,0.22,1', 'display-p3:0.95,0.30,0.16,1', 0, 1))
+# Nudge the art right: the photo and screw sit left of the frame's center.
+ij = os.path.join(here, out + '.icon', 'icon.json')
+j = json.load(open(ij))
+for g in j['groups']: g['position'] = {'scale': 1, 'translation-in-points': [24, 0]}
+json.dump(j, open(ij, 'w'), indent=2)
 print('ok')

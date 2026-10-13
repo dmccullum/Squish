@@ -94,6 +94,13 @@
       "translucency": {
         "enabled": false,
         "value": 0
+      },
+      "position": {
+        "scale": 1,
+        "translation-in-points": [
+          24,
+          0
+        ]
       }
     },
     {
@@ -106,8 +113,8 @@
             {
               "value": {
                 "linear-gradient": [
-                  "display-p3:0.96,0.97,0.98,1",
-                  "display-p3:0.70,0.72,0.76,1"
+                  "display-p3:0.40,0.41,0.45,1",
+                  "display-p3:0.20,0.20,0.23,1"
                 ],
                 "orientation": {
                   "start": {
@@ -151,6 +158,13 @@
       "translucency": {
         "enabled": false,
         "value": 0
+      },
+      "position": {
+        "scale": 1,
+        "translation-in-points": [
+          24,
+          0
+        ]
       }
     },
     {
@@ -173,6 +187,13 @@
       "translucency": {
         "enabled": false,
         "value": 0
+      },
+      "position": {
+        "scale": 1,
+        "translation-in-points": [
+          24,
+          0
+        ]
       }
     },
     {
@@ -192,7 +213,14 @@
         "enabled": true,
         "value": 0.2
       },
-      "blur-material": 0.3
+      "blur-material": 0.3,
+      "position": {
+        "scale": 1,
+        "translation-in-points": [
+          24,
+          0
+        ]
+      }
     }
   ],
   "supported-platforms": {
