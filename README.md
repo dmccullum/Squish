@@ -1,66 +1,101 @@
-# Squish
+<p align="center">
+  <img src="docs/icon.png" width="128" alt="Squish app icon">
+</p>
 
-A small, drop-focused Mac app that squishes images to a target **file size**, **dimension**, and **format**. Native SwiftUI, no dependencies.
+<h1 align="center">Squish</h1>
 
-![Squish](Squish/Assets.xcassets/AppIcon.appiconset/icon_256.png)
+<p align="center">
+  Shrinks images to a file size, dimension limit, and format you choose.<br>
+  Drop in files or folders; get JPEG or HEIC copies back.
+</p>
 
-## Using it
+<p align="center">
+  <img src="https://img.shields.io/badge/macOS-14%2B-orange" alt="macOS 14+">
+  <img src="https://img.shields.io/badge/Swift-SwiftUI-orange" alt="SwiftUI">
+  <img src="https://img.shields.io/badge/license-MIT-orange" alt="MIT license">
+</p>
 
-Drop images, a pile of them, or a whole folder onto the window, onto Squish in the Dock, or use **Squish Images** from Finder's Quick Actions / Services menu. ⌘O works too.
+<p align="center">
+  <img src="docs/screenshot.png" width="560" alt="Squish window with the sentence: Make them under 10 MB and any dimensions, then save as JPEG next to the originals.">
+</p>
 
-The window reads like an instruction:
+## Features
 
-> Make them **under 1 MB** and **max 2048 px**, then save as **JPEG** **next to the originals**.
+- **Reads like a sentence.** The window says *Make them under 1 MB and max 2048 px, then save as JPEG next to the originals.* Each orange phrase is a pop-up menu.
+- **Live dials.** File size and Dimensions open on a slider. Dragging applies the value immediately while the menu stays open, and the clamp in the window shows the result.
+- **File size presets:** Uploads 50 MB, Print 25 MB, Share 10 MB, Email 5 MB, Web 1 MB, Small 500 KB. Or drag to any limit, or pick no limit.
+- **Dimension limits:** long side, width, or height, or **Fit Within a Box…** for both. Images are never upscaled.
+- **Formats:** JPEG, or HEIC for smaller files on Apple devices. Reads anything ImageIO reads, including PNG and WebP.
+- **Folders:** drop a folder and its structure is kept in the output.
+- **Results list:** before and after size for each file. Drag rows into Mail or Slack, press Space for Quick Look, double-click to open.
+- **Dock badge:** the icon badges and bounces when a batch finishes while you're in another app, with an optional sound.
 
-Each orange phrase is a pop-up menu. **File size** and **Dimensions** open on a live dial: drag the slider and the value applies immediately while the menu stays open, with the clamp in the window acting it out. Presets live one level down, in a Presets submenu and as detents on the slider.
+## Install
 
-- **File size**: drag to any limit, or tap the orange dot at the start of the slider for no limit. Presets: Uploads 50 MB, Print 25 MB, Share 10 MB, Email 5 MB, Web 1 MB, Small 500 KB.
-- **Dimensions**: the same dot for no limit, or drag a long-side, width or height limit; **Fit Within a Box…** sets both. Images are never upscaled.
-- **Format**: JPEG (opens anywhere) or HEIC (smaller, best on Apple devices).
-- **Save to**: next to the originals, or a folder you choose.
+Squish is not sandboxed and is not notarized, so you build it yourself. You need macOS 14+ and Xcode 26.
 
-The same choices live in the **Recipe** menu in the menu bar.
+```sh
+git clone https://github.com/dmccullum/Squish.git
+cd Squish
+./"Build Squish.command"
+```
 
-### Where files go
-With **next to the originals**, output mirrors how the drop arrived:
-- a single image → `name (squished).jpg` beside it
-- several items → a `Squished` folder in their common parent
-- a folder → a sibling `<name> (squished)` folder, structure preserved
+The script builds a Release copy, installs it to `/Applications`, registers the Finder service, and launches it. You can also open `Squish.xcodeproj` in Xcode and press Run, or build from the command line:
 
-With a chosen folder, everything goes there (dropped folders keep their structure).
-
-### When it's done
-Results list each file with before and after sizes. Drag rows straight into Mail or Slack, press Space for Quick Look, double-click to open, or ⌘R to show them in Finder. ⌘. stops a batch. If you've switched away, the Dock icon badges and bounces when a batch finishes, with an optional pop.
-
-## How it works
-- Reads anything ImageIO supports (including WebP and PNG); writes JPEG or HEIC.
-- **File-size targeting** binary-searches encoder quality, then downscales if the lowest quality still overshoots.
-- **Batches** either hit the target per image, or *match quality across the batch* (Settings): the quality that lands the heaviest image on target is applied to all, so they look consistent.
-- A re-encode that would only grow a file keeps the original bytes instead.
-- Batches run concurrently across CPU cores; failures are per file and never abort the batch.
-- **Settings** (⌘,): batch strategy, finish sound, and editable pixel-size and file-size presets.
-
-## Build & run
 ```sh
 xcodebuild -project Squish.xcodeproj -scheme Squish -configuration Debug build
 ```
-Or open `Squish.xcodeproj` in Xcode and hit Run. Requires macOS 14+ and Xcode 26 (the app icon is an Icon Composer `.icon`). New files in `Squish/` are picked up automatically (filesystem-synchronized group). Document types and the Services entry live in `Config/Info.plist`.
 
-The app is **not sandboxed** (personal/direct distribution) so it can write next to originals.
+## Usage
 
-## Icon
-`Squish/Squish.icon` is a layered Icon Composer file: an orange clamp squeezing a dusk-lit photo, with light, dark and tinted variants of the handle. The layers are generated by the scripts in `Icon/Source` (`python3 final.py` writes `Squish.icon` next to it). The window's animated clamp (`ClampView`) uses the same geometry and palette. Previous icons are kept in `Icon/` for reference.
+Drop images or folders on the window or on Squish in the Dock. Other ways in:
+
+- **⌘O** opens a file picker.
+- **Squish Images** in Finder's Quick Actions and Services menu.
+- **Open With** on any image or folder.
+
+| Shortcut | Action |
+| --- | --- |
+| ⌘O | Choose images |
+| ⌘R | Show results in Finder |
+| ⌘. | Stop the running batch |
+| ⌘, | Settings |
+| Space | Quick Look the selected result |
+
+The same choices are in the **Recipe** menu in the menu bar.
+
+### Where files go
+
+With **next to the originals**:
+
+| You drop | Output |
+| --- | --- |
+| One image | `name (squished).jpg` beside it |
+| Several items | A `Squished` folder in their common parent |
+| A folder | A sibling `<name> (squished)` folder with the same structure |
+
+With a chosen folder, everything goes there. Dropped folders keep their structure.
+
+## How it works
+
+- **File-size targeting** binary-searches encoder quality, then downscales if the lowest quality still overshoots.
+- **Batches** either hit the target per image, or **match quality across the batch** (Settings): the quality that brings the heaviest image to the target is applied to all of them.
+- If re-encoding would make a file larger, Squish keeps the original bytes.
+- Images are processed concurrently across CPU cores. A failure affects only that file.
+- **Settings** has the batch strategy, finish sound, and editable pixel-size and file-size presets.
 
 ## Project layout
-```
-Squish/
-  SquishApp.swift        App, app delegate (Dock / Open With / Services), menu commands
-  Models/                Settings, Recipe (sentence phrases + menu options), DropInput, JobResult
-  Core/                  ImageCompressor, OutputPlanner, JobRunner
-  Views/                 ContentView, ClampView, RecipeView, ResultsView, SettingsView
-Config/Info.plist        Document types and Services
-Icon/                    Icon sources and history
-```
 
-## Possible follow-ons
-A Shortcuts action (App Intents), WebP **output** (needs a bundled encoder like libwebp), App Sandbox / Mac App Store packaging and notarization.
+| Path | Contents |
+| --- | --- |
+| `Squish/Core` | Image compression, job running, output paths |
+| `Squish/Models` | Recipe, settings, drop input, results |
+| `Squish/Views` | SwiftUI views and menus |
+| `Config/Info.plist` | Document types and the Services entry |
+| `Icon` | App icon sources (Icon Composer `.icon`, SVGs, generator scripts) |
+
+New files under `Squish/` are picked up automatically by the Xcode project.
+
+## License
+
+[MIT](LICENSE)
