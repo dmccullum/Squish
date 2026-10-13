@@ -1,8 +1,8 @@
 {
   "fill": {
     "linear-gradient": [
-      "display-p3:1.0,0.58,0.22,1",
-      "display-p3:0.95,0.30,0.16,1"
+      "display-p3:1,0.985,0.97,1",
+      "display-p3:0.92,0.90,0.88,1"
     ],
     "orientation": {
       "start": {
@@ -83,7 +83,65 @@
         },
         {
           "name": "screw",
-          "image-name": "screw.svg"
+          "image-name": "screw.svg",
+          "fill-specializations": [
+            {
+              "value": {
+                "linear-gradient": [
+                  "display-p3:0.50,0.51,0.55,1",
+                  "display-p3:0.30,0.31,0.34,1"
+                ],
+                "orientation": {
+                  "start": {
+                    "x": 0,
+                    "y": 0.5
+                  },
+                  "stop": {
+                    "x": 1,
+                    "y": 0.5
+                  }
+                }
+              }
+            },
+            {
+              "appearance": "dark",
+              "value": {
+                "linear-gradient": [
+                  "display-p3:0.85,0.87,0.89,1",
+                  "display-p3:0.66,0.69,0.72,1"
+                ],
+                "orientation": {
+                  "start": {
+                    "x": 0,
+                    "y": 0.5
+                  },
+                  "stop": {
+                    "x": 1,
+                    "y": 0.5
+                  }
+                }
+              }
+            },
+            {
+              "appearance": "tinted",
+              "value": {
+                "linear-gradient": [
+                  "display-p3:1,1,1,1",
+                  "display-p3:0.86,0.87,0.90,1"
+                ],
+                "orientation": {
+                  "start": {
+                    "x": 0,
+                    "y": 0.5
+                  },
+                  "stop": {
+                    "x": 1,
+                    "y": 0.5
+                  }
+                }
+              }
+            }
+          ]
         }
       ],
       "shadow": {
@@ -109,45 +167,22 @@
         {
           "name": "frame",
           "image-name": "frame.svg",
-          "fill-specializations": [
-            {
-              "value": {
-                "linear-gradient": [
-                  "display-p3:0.40,0.41,0.45,1",
-                  "display-p3:0.20,0.20,0.23,1"
-                ],
-                "orientation": {
-                  "start": {
-                    "x": 0.5,
-                    "y": 0
-                  },
-                  "stop": {
-                    "x": 0.5,
-                    "y": 1
-                  }
-                }
-              }
-            },
-            {
-              "appearance": "dark",
-              "value": {
-                "linear-gradient": [
-                  "display-p3:1.0,0.58,0.22,1",
-                  "display-p3:0.95,0.30,0.16,1"
-                ],
-                "orientation": {
-                  "start": {
-                    "x": 0.5,
-                    "y": 0
-                  },
-                  "stop": {
-                    "x": 0.5,
-                    "y": 1
-                  }
-                }
+          "fill": {
+            "linear-gradient": [
+              "display-p3:1.0,0.58,0.22,1",
+              "display-p3:0.95,0.30,0.16,1"
+            ],
+            "orientation": {
+              "start": {
+                "x": 0.5,
+                "y": 0
+              },
+              "stop": {
+                "x": 0.5,
+                "y": 1
               }
             }
-          ]
+          }
         }
       ],
       "shadow": {

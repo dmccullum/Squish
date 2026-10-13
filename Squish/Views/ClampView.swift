@@ -83,16 +83,15 @@ struct ClampView: View, Animatable {
                                          startPoint: CGPoint(x: 0, y: 200), endPoint: CGPoint(x: 0, y: 280)))
         }
 
-        // Rod and pad
-        let steel = GraphicsContext.Shading.linearGradient(
-            Gradient(stops: [.init(color: Palette.steel0, location: 0), .init(color: .white, location: 0.45),
-                             .init(color: Palette.steel1, location: 1)]),
-            startPoint: CGPoint(x: 415, y: 0), endPoint: CGPoint(x: 467, y: 0))
+        // Rod and pad: silver on dark, gray on light so they read against the window.
+        let metal = scheme == .dark ? [Palette.steel0, .white, Palette.steel1] : [Palette.slate0, Palette.slate1]
+        let steel = GraphicsContext.Shading.linearGradient(Gradient(colors: metal),
+                                                           startPoint: CGPoint(x: 415, y: 0), endPoint: CGPoint(x: 467, y: 0))
         ctx.fill(Path(roundedRect: CGRect(x: 415, y: rodTop, width: 52, height: padTop - rodTop + 10), cornerRadius: 14), with: steel)
         ctx.drawLayer { l in
             l.addFilter(.shadow(color: .black.opacity(0.25), radius: 6, x: 0, y: 4))
             l.fill(Path(roundedRect: CGRect(x: 331, y: padTop, width: 220, height: 46), cornerRadius: 16),
-                   with: .linearGradient(Gradient(colors: [Palette.steel0, .white, Palette.steel1]),
+                   with: .linearGradient(Gradient(colors: metal),
                                          startPoint: CGPoint(x: 331, y: 0), endPoint: CGPoint(x: 551, y: 0)))
         }
 
@@ -185,6 +184,8 @@ enum Palette {
     static let orange1 = Color(.displayP3, red: 0.95, green: 0.30, blue: 0.16)
     static let steel0 = Color(red: 0.851, green: 0.867, blue: 0.886)
     static let steel1 = Color(red: 0.663, green: 0.690, blue: 0.722)
+    static let slate0 = Color(.displayP3, red: 0.50, green: 0.51, blue: 0.55)
+    static let slate1 = Color(.displayP3, red: 0.30, green: 0.31, blue: 0.34)
     static let ink0 = Color(.displayP3, red: 0.24, green: 0.24, blue: 0.27)
     static let ink1 = Color(.displayP3, red: 0.10, green: 0.10, blue: 0.12)
     static let graphite0 = Color(.displayP3, red: 0.78, green: 0.80, blue: 0.84)
