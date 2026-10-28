@@ -194,11 +194,8 @@ enum Palette {
 
 extension NSColor {
     /// Accent for text: deep enough to read on light backgrounds, bright on dark.
-    static let squishInk = NSColor(name: "squishInk") { appearance in
-        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            ? NSColor(displayP3Red: 1.0, green: 0.56, blue: 0.36, alpha: 1)
-            : NSColor(displayP3Red: 0.82, green: 0.29, blue: 0.10, alpha: 1)
-    }
+    /// Same values as the AccentColor asset, so fills and menu highlights match it.
+    static let squishInk = NSColor(named: "AccentColor") ?? .systemOrange
 }
 
 extension Color {

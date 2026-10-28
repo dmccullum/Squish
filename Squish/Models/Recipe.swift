@@ -231,7 +231,7 @@ extension SquishSettings {
 
     private func formatOptions() -> [RecipeOption] {
         OutputFormat.allCases.map { f in
-            .choice(f.displayName, detail: f.blurb, checked: format == f) { self.format = f }
+            .choice(f.displayName, checked: format == f) { self.format = f }
         }
     }
 
@@ -292,15 +292,6 @@ enum PresetInfo {
         case "medium":    return "Blogs, docs and slides"
         case "thumbnail": return "Previews and avatars"
         default:          return "Your preset"
-        }
-    }
-}
-
-extension OutputFormat {
-    var blurb: String {
-        switch self {
-        case .jpeg: return "Opens anywhere"
-        case .heic: return "Smaller, best on Apple devices"
         }
     }
 }
