@@ -2,6 +2,7 @@ import AppKit
 import UniformTypeIdentifiers
 
 /// Thin AppKit helpers for things SwiftUI doesn't cover natively on macOS.
+@MainActor
 enum Platform {
     /// Reveal & select the given files in Finder.
     static func reveal(_ urls: [URL]) {

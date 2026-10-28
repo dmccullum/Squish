@@ -31,9 +31,10 @@ struct SquishSettingsView: View {
 // MARK: - General
 
 private struct GeneralPane: View {
-    @EnvironmentObject private var settings: SquishSettings
+    @Environment(SquishSettings.self) private var settings
 
     var body: some View {
+        @Bindable var settings = settings
         Form {
             Section("Batches") {
                 Picker("When squishing several images", selection: $settings.strategy) {
@@ -56,7 +57,7 @@ private struct GeneralPane: View {
 // MARK: - Pixel size presets
 
 private struct DimensionPresetsPane: View {
-    @EnvironmentObject private var settings: SquishSettings
+    @Environment(SquishSettings.self) private var settings
 
     // Edit by id so rows can re-sort live without losing the binding.
     private func binding(_ id: UUID) -> Binding<DimensionPreset> {
@@ -109,7 +110,7 @@ private struct DimensionPresetsPane: View {
 // MARK: - File size presets
 
 private struct SizePresetsPane: View {
-    @EnvironmentObject private var settings: SquishSettings
+    @Environment(SquishSettings.self) private var settings
 
     private func binding(_ id: UUID) -> Binding<SizePreset> {
         Binding(

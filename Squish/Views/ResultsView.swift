@@ -3,7 +3,7 @@ import QuickLook
 import QuickLookThumbnailing
 
 struct ResultsView: View {
-    @EnvironmentObject private var runner: JobRunner
+    @Environment(JobRunner.self) private var runner
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var released = false
@@ -155,7 +155,7 @@ struct ResultsView: View {
 /// "−81%" that counts up smoothly as `value` animates.
 private struct PercentText: View, Animatable {
     var value: Double
-    var animatableData: Double {
+    nonisolated var animatableData: Double {
         get { value }
         set { value = newValue }
     }

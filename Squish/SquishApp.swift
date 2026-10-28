@@ -7,9 +7,9 @@ struct SquishApp: App {
     var body: some Scene {
         Window("Squish", id: "main") {
             ContentView()
-                .environmentObject(app.settings)
-                .environmentObject(app.runner)
-                .environmentObject(app.editor)
+                .environment(app.settings)
+                .environment(app.runner)
+                .environment(app.editor)
                 .frame(width: 480, height: 440)
         }
         .windowStyle(.hiddenTitleBar)
@@ -20,7 +20,7 @@ struct SquishApp: App {
 
         Settings {
             SquishSettingsView()
-                .environmentObject(app.settings)
+                .environment(app.settings)
         }
     }
 }
@@ -62,9 +62,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 struct SquishCommands: Commands {
-    @ObservedObject var settings: SquishSettings
-    @ObservedObject var runner: JobRunner
-    @ObservedObject var editor: RecipeEditor
+    let settings: SquishSettings
+    let runner: JobRunner
+    let editor: RecipeEditor
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
@@ -96,8 +96,8 @@ struct SquishCommands: Commands {
 /// A Recipe submenu built from the same options as the sentence's pop-ups.
 private struct RecipeMenu: View {
     let field: RecipeField
-    @ObservedObject var settings: SquishSettings
-    @ObservedObject var editor: RecipeEditor
+    let settings: SquishSettings
+    let editor: RecipeEditor
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {

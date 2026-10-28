@@ -1,23 +1,25 @@
 import AppKit
+import Observation
 import UniformTypeIdentifiers
 
 /// Orchestrates a batch squish: expands the drop, plans destinations,
 /// compresses concurrently, and publishes progress + results to the UI.
 @MainActor
-final class JobRunner: ObservableObject {
-    @Published var isRunning = false
-    @Published var progress: Double = 0
-    @Published var currentFile = ""
-    @Published var totalFiles = 0
-    @Published var results: [JobResult] = []
-    @Published var hasFinished = false
-    @Published var revealRoot: URL?
-    @Published var emptyDrop = false
-    @Published var completed = 0
-    @Published var wasCancelled = false
+@Observable
+final class JobRunner {
+    var isRunning = false
+    var progress: Double = 0
+    var currentFile = ""
+    var totalFiles = 0
+    var results: [JobResult] = []
+    var hasFinished = false
+    var revealRoot: URL?
+    var emptyDrop = false
+    var completed = 0
+    var wasCancelled = false
 
-    private let fm = FileManager.default
-    private var task: Task<Void, Never>?
+    @ObservationIgnored private let fm = FileManager.default
+    @ObservationIgnored private var task: Task<Void, Never>?
 
     /// The single entry point for files from anywhere: drops, ⌘O, the Dock,
     /// Open With and the Services menu.
@@ -138,10 +140,12 @@ final class JobRunner: ObservableObject {
 
         // "Match quality across batch": find the quality that lands the largest
         // (heaviest) image on target, then reuse it for everyone.
-        var overrideQuality: Double?
+        let overrideQuality: Double?
         if strategy == .matchQuality, request.sizeTargetEnabled, jobs.count > 1,
            let heaviest = jobs.max(by: { fileSize($0.source) < fileSize($1.source) }) {
             overrideQuality = (try? ImageCompressor.compress(source: heaviest.source, request: request))?.qualityUsed
+        } else {
+            overrideQuality = nil
         }
 
         let maxConcurrent = max(1, ProcessInfo.processInfo.activeProcessorCount)

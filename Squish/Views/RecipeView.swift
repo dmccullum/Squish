@@ -4,11 +4,12 @@ import AppKit
 /// Which custom editor (if any) is open. Shared so the Recipe menu in the menu
 /// bar can open the same popovers as the sentence.
 @MainActor
-final class RecipeEditor: ObservableObject {
-    @Published var editing: RecipeField?
+@Observable
+final class RecipeEditor {
+    var editing: RecipeField?
     /// Set while a recipe menu is open and something in it is highlighted or
     /// being dragged; the window's clamp and caption act it out.
-    @Published var preview: RecipePreview?
+    var preview: RecipePreview?
 }
 
 /// "Make them [under 1 MB] and [max 2048 px], then save as [JPEG] [next to the originals]."
@@ -42,8 +43,8 @@ struct RecipeSentence: View {
 struct RecipeToken: View {
     let field: RecipeField
 
-    @EnvironmentObject private var settings: SquishSettings
-    @EnvironmentObject private var editor: RecipeEditor
+    @Environment(SquishSettings.self) private var settings
+    @Environment(RecipeEditor.self) private var editor
     @Environment(\.openSettings) private var openSettings
     @State private var anchor = MenuAnchor.Box()
     @State private var hovering = false
@@ -84,8 +85,8 @@ struct RecipeToken: View {
 
     @ViewBuilder private var editorView: some View {
         switch field {
-        case .size:       SizeEditor().environmentObject(settings).environmentObject(editor)
-        case .dimensions: DimensionEditor().environmentObject(settings).environmentObject(editor)
+        case .size:       SizeEditor().environment(settings).environment(editor)
+        case .dimensions: DimensionEditor().environment(settings).environment(editor)
         default:          EmptyView()
         }
     }
@@ -138,10 +139,11 @@ struct MenuAnchor: NSViewRepresentable {
 // MARK: - Custom editors
 
 private struct SizeEditor: View {
-    @EnvironmentObject private var settings: SquishSettings
-    @EnvironmentObject private var editor: RecipeEditor
+    @Environment(SquishSettings.self) private var settings
+    @Environment(RecipeEditor.self) private var editor
 
     var body: some View {
+        @Bindable var settings = settings
         VStack(alignment: .leading, spacing: 12) {
             Text("Keep each image under").font(.headline)
             HStack(spacing: 8) {
@@ -168,10 +170,11 @@ private struct SizeEditor: View {
 }
 
 private struct DimensionEditor: View {
-    @EnvironmentObject private var settings: SquishSettings
-    @EnvironmentObject private var editor: RecipeEditor
+    @Environment(SquishSettings.self) private var settings
+    @Environment(RecipeEditor.self) private var editor
 
     var body: some View {
+        @Bindable var settings = settings
         VStack(alignment: .leading, spacing: 12) {
             Text("Limit dimensions").font(.headline)
             Picker("Limit", selection: $settings.dimensionMode) {

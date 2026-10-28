@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 import UniformTypeIdentifiers
 
 /// Output image format. Native, lossy, ImageIO-encodable formats only.
@@ -107,33 +108,34 @@ struct SizePreset: Identifiable, Codable, Equatable, Hashable {
 
 /// User-facing, persisted configuration. Backed by `UserDefaults`.
 @MainActor
-final class SquishSettings: ObservableObject {
+@Observable
+final class SquishSettings {
     // File-size target
-    @Published var sizeTargetEnabled: Bool { didSet { save() } }
-    @Published var sizeValue: Double         { didSet { save() } }
-    @Published var sizeUnit: SizeUnit        { didSet { save() } }
+    var sizeTargetEnabled: Bool { didSet { save() } }
+    var sizeValue: Double         { didSet { save() } }
+    var sizeUnit: SizeUnit        { didSet { save() } }
 
     // Dimension target
-    @Published var dimensionEnabled: Bool    { didSet { save() } }
-    @Published var dimensionMode: DimensionMode { didSet { save() } }
-    @Published var longSide: Int             { didSet { save() } }
-    @Published var maxWidth: Int             { didSet { save() } }
-    @Published var maxHeight: Int            { didSet { save() } }
-    @Published var fitWidth: Int             { didSet { save() } }
-    @Published var fitHeight: Int            { didSet { save() } }
+    var dimensionEnabled: Bool    { didSet { save() } }
+    var dimensionMode: DimensionMode { didSet { save() } }
+    var longSide: Int             { didSet { save() } }
+    var maxWidth: Int             { didSet { save() } }
+    var maxHeight: Int            { didSet { save() } }
+    var fitWidth: Int             { didSet { save() } }
+    var fitHeight: Int            { didSet { save() } }
 
     // Format — always applied (the output is always JPEG or HEIC).
-    @Published var format: OutputFormat      { didSet { save() } }
+    var format: OutputFormat      { didSet { save() } }
 
     // Output placement
-    @Published var outputMode: OutputMode    { didSet { save() } }
-    @Published var chosenFolderPath: String  { didSet { save() } }
+    var outputMode: OutputMode    { didSet { save() } }
+    var chosenFolderPath: String  { didSet { save() } }
 
     // Preferences (Settings window)
-    @Published var strategy: CompressionStrategy      { didSet { save() } }
-    @Published var dimensionPresets: [DimensionPreset] { didSet { save() } }
-    @Published var sizePresets: [SizePreset]           { didSet { save() } }
-    @Published var playSound: Bool                     { didSet { save() } }
+    var strategy: CompressionStrategy      { didSet { save() } }
+    var dimensionPresets: [DimensionPreset] { didSet { save() } }
+    var sizePresets: [SizePreset]           { didSet { save() } }
+    var playSound: Bool                     { didSet { save() } }
 
     /// Default auto-naming suffix for single files and containers.
     let suffix = " (squished)"
@@ -145,7 +147,7 @@ final class SquishSettings: ObservableObject {
         chosenFolderPath.isEmpty ? nil : URL(fileURLWithPath: chosenFolderPath, isDirectory: true)
     }
 
-    private let d = UserDefaults.standard
+    @ObservationIgnored private let d = UserDefaults.standard
 
     init() {
         d.register(defaults: [

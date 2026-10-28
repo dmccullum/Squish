@@ -2,9 +2,9 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ContentView: View {
-    @EnvironmentObject private var settings: SquishSettings
-    @EnvironmentObject private var runner: JobRunner
-    @EnvironmentObject private var editor: RecipeEditor
+    @Environment(SquishSettings.self) private var settings
+    @Environment(JobRunner.self) private var runner
+    @Environment(RecipeEditor.self) private var editor
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var isTargeted = false
@@ -23,13 +23,11 @@ struct ContentView: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: runner.hasFinished)
-        .onDrop(of: [.fileURL], isTargeted: $isTargeted) { providers in
-            loadURLs(from: providers) { urls in
-                if runner.hasFinished { runner.reset() }
-                runner.accept(urls, settings: settings)
-            }
+        .dropDestination(for: URL.self) { urls, _ in
+            if runner.hasFinished { runner.reset() }
+            runner.accept(urls, settings: settings)
             return true
-        }
+        } isTargeted: { isTargeted = $0 }
     }
 
     // MARK: - Background
@@ -148,23 +146,6 @@ struct ContentView: View {
         let urls = Platform.chooseInputs()
         guard !urls.isEmpty else { return }
         runner.accept(urls, settings: settings)
-    }
-
-    private func loadURLs(from providers: [NSItemProvider], completion: @escaping ([URL]) -> Void) {
-        let group = DispatchGroup()
-        let lock = NSLock()
-        var urls: [URL] = []
-        for provider in providers where provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
-            group.enter()
-            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
-                var resolved: URL?
-                if let data = item as? Data { resolved = URL(dataRepresentation: data, relativeTo: nil) }
-                else if let url = item as? URL { resolved = url }
-                if let resolved { lock.lock(); urls.append(resolved); lock.unlock() }
-                group.leave()
-            }
-        }
-        group.notify(queue: .main) { completion(urls) }
     }
 }
 

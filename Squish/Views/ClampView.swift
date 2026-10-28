@@ -12,7 +12,7 @@ struct ClampView: View, Animatable {
     /// Shrinks the photo (1 = full size) to act out a pixel limit.
     var photoScale: Double = 1
 
-    var animatableData: AnimatablePair<AnimatablePair<Double, Double>, Double> {
+    nonisolated var animatableData: AnimatablePair<AnimatablePair<Double, Double>, Double> {
         get { AnimatablePair(AnimatablePair(squeeze, twist), photoScale) }
         set { squeeze = newValue.first.first; twist = newValue.first.second; photoScale = newValue.second }
     }
