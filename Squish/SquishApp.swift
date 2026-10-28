@@ -68,7 +68,7 @@ struct SquishCommands: Commands {
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
-            Button("Squish Images…") {
+            Button("Squish Images…", systemImage: "photo.stack") {
                 let urls = Platform.chooseInputs()
                 if runner.hasFinished { runner.reset() }
                 runner.accept(urls, settings: settings)
@@ -78,10 +78,10 @@ struct SquishCommands: Commands {
         }
         CommandGroup(after: .newItem) {
             Divider()
-            Button("Show in Finder") { Platform.reveal(runner.outputs) }
+            Button("Show in Finder", systemImage: "folder") { Platform.reveal(runner.outputs) }
                 .keyboardShortcut("r")
                 .disabled(runner.outputs.isEmpty)
-            Button("Stop Squishing") { runner.cancel() }
+            Button("Stop Squishing", systemImage: "stop.circle") { runner.cancel() }
                 .keyboardShortcut(".")
                 .disabled(!runner.isRunning)
         }
@@ -101,7 +101,7 @@ private struct RecipeMenu: View {
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
-        Menu(field.title) {
+        Menu(field.title, systemImage: field.symbol) {
             let actions = RecipeActions(
                 editCustom: { editor.editing = $0 },
                 editPresets: { field in

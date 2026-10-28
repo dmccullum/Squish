@@ -109,8 +109,7 @@ struct ResultsView: View {
             return .handled
         }
         .quickLookPreview($preview, in: runner.outputs)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
+        .listCard()
         .padding(.horizontal, 16)
     }
 
@@ -138,6 +137,7 @@ struct ResultsView: View {
         HStack {
             if !runner.outputs.isEmpty {
                 Button("Show in Finder") { Platform.reveal(runner.outputs) }
+                    .glassButtonStyle()
             }
             Spacer()
             Text("Drop more to keep going")
@@ -145,10 +145,24 @@ struct ResultsView: View {
                 .foregroundStyle(.tertiary)
             Spacer()
             Button("Done") { runner.reset() }
-                .buttonStyle(.borderedProminent)
+                .glassButtonStyle(prominent: true)
                 .keyboardShortcut(.defaultAction)
         }
         .padding(16)
+    }
+}
+
+private extension View {
+    /// Clips the results list to a hairline-bordered card whose corners nest
+    /// inside the window's on macOS 26.
+    @ViewBuilder func listCard() -> some View {
+        if #available(macOS 26.0, *) {
+            let shape = ConcentricRectangle(corners: .concentric(minimum: .fixed(14)), isUniform: true)
+            self.clipShape(shape).overlay(shape.stroke(Color.primary.opacity(0.08), lineWidth: 1))
+        } else {
+            let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
+            self.clipShape(shape).overlay(shape.strokeBorder(Color.primary.opacity(0.08)))
+        }
     }
 }
 

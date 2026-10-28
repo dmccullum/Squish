@@ -14,6 +14,16 @@ enum RecipeField: String, CaseIterable, Identifiable {
         case .location:   return "Save To"
         }
     }
+
+    /// Shown beside the field in the menu bar's Recipe menu.
+    var symbol: String {
+        switch self {
+        case .size:       return "scalemass"
+        case .dimensions: return "aspectratio"
+        case .format:     return "photo"
+        case .location:   return "folder"
+        }
+    }
 }
 
 /// What the window's clamp and caption show while a choice is being considered

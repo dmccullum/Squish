@@ -13,16 +13,26 @@ struct SquishSettingsView: View {
     @AppStorage("settingsTab") private var tab = SettingsTab.general.rawValue
 
     var body: some View {
-        TabView(selection: $tab) {
-            GeneralPane()
-                .tabItem { Label("General", systemImage: "gearshape") }
-                .tag(SettingsTab.general.rawValue)
-            DimensionPresetsPane()
-                .tabItem { Label("Pixel Sizes", systemImage: "aspectratio") }
-                .tag(SettingsTab.pixels.rawValue)
-            SizePresetsPane()
-                .tabItem { Label("File Sizes", systemImage: "scalemass") }
-                .tag(SettingsTab.sizes.rawValue)
+        Group {
+            if #available(macOS 15.0, *) {
+                TabView(selection: $tab) {
+                    Tab("General", systemImage: "gearshape", value: SettingsTab.general.rawValue) { GeneralPane() }
+                    Tab("Pixel Sizes", systemImage: "aspectratio", value: SettingsTab.pixels.rawValue) { DimensionPresetsPane() }
+                    Tab("File Sizes", systemImage: "scalemass", value: SettingsTab.sizes.rawValue) { SizePresetsPane() }
+                }
+            } else {
+                TabView(selection: $tab) {
+                    GeneralPane()
+                        .tabItem { Label("General", systemImage: "gearshape") }
+                        .tag(SettingsTab.general.rawValue)
+                    DimensionPresetsPane()
+                        .tabItem { Label("Pixel Sizes", systemImage: "aspectratio") }
+                        .tag(SettingsTab.pixels.rawValue)
+                    SizePresetsPane()
+                        .tabItem { Label("File Sizes", systemImage: "scalemass") }
+                        .tag(SettingsTab.sizes.rawValue)
+                }
+            }
         }
         .frame(width: 500, height: 380)
     }
