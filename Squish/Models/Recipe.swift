@@ -14,16 +14,6 @@ enum RecipeField: String, CaseIterable, Identifiable {
         case .location:   return "Save To"
         }
     }
-
-    /// Shown beside the field in the menu bar's Recipe menu.
-    var symbol: String {
-        switch self {
-        case .size:       return "scalemass"
-        case .dimensions: return "aspectratio"
-        case .format:     return "photo"
-        case .location:   return "folder"
-        }
-    }
 }
 
 /// What the window's clamp and caption show while a choice is being considered
@@ -44,7 +34,6 @@ struct RecipeOption: Identifiable {
     var kind: Kind
     var title = ""
     var detail: String?
-    var symbol: String?
     var checked = false
     /// The "Any File Size" / "Any Dimensions" item, which the dial unchecks live.
     var isAny = false
@@ -162,17 +151,15 @@ extension SquishSettings {
         }
         any.isAny = true
         let presets: [RecipeOption] = sortedSizePresets.map { p in
-            var o = RecipeOption.choice(p.name, detail: p.valueLabel,
-                                        checked: sizeTargetEnabled && p.bytes == targetBytes,
-                                        preview: .init(squeeze: RecipeScale.squeeze(bytes: p.bytes),
-                                                       title: "\(p.name) · \(p.valueLabel)",
-                                                       detail: PresetInfo.blurb(size: p.name))) {
+            RecipeOption.choice(p.name, detail: p.valueLabel,
+                                checked: sizeTargetEnabled && p.bytes == targetBytes,
+                                preview: .init(squeeze: RecipeScale.squeeze(bytes: p.bytes),
+                                               title: "\(p.name) · \(p.valueLabel)",
+                                               detail: PresetInfo.blurb(size: p.name))) {
                 self.sizeValue = p.value
                 self.sizeUnit = p.unit
                 self.sizeTargetEnabled = true
             }
-            o.symbol = PresetInfo.symbol(size: p.name)
-            return o
         }
         let edit = RecipeOption.command("Edit Presets…",
                                         preview: .init(title: "Edit presets", detail: "Add, rename or remove sizes in Settings")) {
@@ -262,7 +249,7 @@ extension SquishSettings {
     }
 }
 
-/// Plain-English purpose and an icon for the built-in presets. User-made
+/// Plain-English purpose for the built-in presets. User-made
 /// presets fall back to a generic description.
 enum PresetInfo {
     static func blurb(size name: String) -> String {
@@ -274,18 +261,6 @@ enum PresetInfo {
         case "web":     return "Fast-loading web pages"
         case "small":   return "Chat, forms and thumbnails"
         default:        return "Your preset"
-        }
-    }
-
-    static func symbol(size name: String) -> String {
-        switch name.lowercased() {
-        case "uploads": return "icloud.and.arrow.up"
-        case "print":   return "printer"
-        case "share":   return "square.and.arrow.up"
-        case "email":   return "envelope"
-        case "web":     return "globe"
-        case "small":   return "leaf"
-        default:        return "bookmark"
         }
     }
 

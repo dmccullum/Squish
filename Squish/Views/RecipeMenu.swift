@@ -8,8 +8,8 @@ struct RecipeMenuContext {
     let preview: (RecipePreview?) -> Void
 }
 
-/// Builds native NSMenus from recipe options: right-aligned values, preset
-/// icons, a Presets submenu, and the live dial at the top.
+/// Builds native NSMenus from recipe options: right-aligned values, a Presets
+/// submenu, and the live dial at the top.
 enum RecipeMenuBuilder {
     /// Horizontal distance from a menu item's edge to its title text.
     static let titleInset: CGFloat = 22
@@ -50,10 +50,6 @@ enum RecipeMenuBuilder {
                         .font: font, .paragraphStyle: para, .foregroundColor: NSColor.secondaryLabelColor,
                     ]))
                     item.attributedTitle = title
-                }
-                if let symbol = option.symbol {
-                    item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?
-                        .withSymbolConfiguration(.init(pointSize: 13, weight: .regular))
                 }
                 item.representedObject = PreviewBox(option.preview)
                 if option.isAny { item.tag = Self.anyTag }

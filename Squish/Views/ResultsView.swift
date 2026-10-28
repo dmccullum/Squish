@@ -2,6 +2,16 @@ import SwiftUI
 import QuickLook
 import QuickLookThumbnailing
 
+/// The selected results, published to the File and Edit menus.
+struct ResultSelection {
+    var urls: [URL]
+    var quickLook: () -> Void
+}
+
+extension FocusedValues {
+    @Entry var resultSelection: ResultSelection?
+}
+
 struct ResultsView: View {
     @Environment(JobRunner.self) private var runner
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -33,6 +43,9 @@ struct ResultsView: View {
             }
             footer
         }
+        .focusedSceneValue(\.resultSelection, ResultSelection(urls: outputs(for: selection)) {
+            preview = outputs(for: selection).first
+        })
         .onAppear {
             withAnimation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.5, dampingFraction: 0.45)) {
                 released = true
@@ -111,10 +124,7 @@ struct ResultsView: View {
             Button("Show in Finder") { Platform.reveal(urls) }.disabled(urls.isEmpty)
             Button("Quick Look") { preview = urls.first }.disabled(urls.isEmpty)
             Divider()
-            Button("Copy") {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.writeObjects(urls as [NSURL])
-            }.disabled(urls.isEmpty)
+            Button("Copy") { copy(urls) }.disabled(urls.isEmpty)
         } primaryAction: { ids in
             outputs(for: ids).forEach { NSWorkspace.shared.open($0) }
         }
@@ -123,6 +133,9 @@ struct ResultsView: View {
             preview = url
             return .handled
         }
+        .onCopyCommand {
+            outputs(for: selection).map { NSItemProvider(object: $0 as NSURL) }
+        }
         .quickLookPreview($preview, in: runner.outputs)
         .listCard()
         .padding(.horizontal, 16)
@@ -130,6 +143,12 @@ struct ResultsView: View {
 
     private func outputs(for ids: Set<JobResult.ID>) -> [URL] {
         runner.results.filter { ids.contains($0.id) }.compactMap(\.output)
+    }
+
+    /// Puts the files themselves on the pasteboard, for pasting into Finder or Mail.
+    private func copy(_ urls: [URL]) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.writeObjects(urls as [NSURL])
     }
 
     // MARK: - Empty
@@ -164,6 +183,14 @@ struct ResultsView: View {
                 .keyboardShortcut(.defaultAction)
         }
         .padding(16)
+        .background {
+            // Escape also means Done; the visible button already answers Return.
+            Button("Done") { runner.reset() }
+                .keyboardShortcut(.cancelAction)
+                .opacity(0)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
     }
 }
 

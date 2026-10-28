@@ -64,10 +64,11 @@ struct SquishCommands: Commands {
     let settings: SquishSettings
     let runner: JobRunner
     let editor: RecipeEditor
+    @FocusedValue(\.resultSelection) private var selection
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
-            Button("Squish Images…", systemImage: "photo.stack") {
+            Button("Squish Images…") {
                 let urls = Platform.chooseInputs()
                 guard !urls.isEmpty else { return }
                 if runner.hasFinished { runner.reset() }
@@ -78,10 +79,19 @@ struct SquishCommands: Commands {
         }
         CommandGroup(after: .newItem) {
             Divider()
-            Button("Show in Finder", systemImage: "folder") { Platform.reveal(runner.outputs) }
+            Button("Open") { selection?.urls.forEach { NSWorkspace.shared.open($0) } }
+                .keyboardShortcut(.downArrow)
+                .disabled(selection?.urls.isEmpty ?? true)
+            Button("Show in Finder") { Platform.reveal(runner.outputs) }
                 .keyboardShortcut("r", modifiers: [.command, .shift])
                 .disabled(runner.outputs.isEmpty)
-            Button("Stop Squishing", systemImage: "stop.circle") { runner.cancel() }
+            Button(quickLookTitle) { selection?.quickLook() }
+                .keyboardShortcut("y")
+                .disabled(selection?.urls.isEmpty ?? true)
+            Divider()
+            Button("Clear Results") { runner.reset() }
+                .disabled(!runner.hasFinished)
+            Button("Stop Squishing") { runner.cancel() }
                 .keyboardShortcut(".")
                 .disabled(!runner.isRunning)
         }
@@ -97,6 +107,12 @@ struct SquishCommands: Commands {
             }
         }
     }
+
+    /// "Quick Look “IMG_0042 (squished).jpg”", like Finder, when one result is selected.
+    private var quickLookTitle: String {
+        guard let urls = selection?.urls, urls.count == 1 else { return "Quick Look" }
+        return "Quick Look “\(urls[0].lastPathComponent)”"
+    }
 }
 
 /// A Recipe submenu built from the same options as the sentence's pop-ups.
@@ -108,7 +124,7 @@ private struct RecipeMenu: View {
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
-        Menu(field.title, systemImage: field.symbol) {
+        Menu(field.title) {
             let actions = RecipeActions(
                 editCustom: { editor.editing = $0 },
                 editPresets: { field in
