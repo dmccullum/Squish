@@ -15,8 +15,8 @@ struct SquishSettingsView: View {
     var body: some View {
         TabView(selection: $tab) {
             Tab("General", systemImage: "gearshape", value: SettingsTab.general.rawValue) { GeneralPane() }
-            Tab("Pixel Sizes", systemImage: "aspectratio", value: SettingsTab.pixels.rawValue) { DimensionPresetsPane() }
-            Tab("File Sizes", systemImage: "scalemass", value: SettingsTab.sizes.rawValue) { SizePresetsPane() }
+            Tab("File Size", systemImage: "scalemass", value: SettingsTab.sizes.rawValue) { SizePresetsPane() }
+            Tab("Dimensions", systemImage: "aspectratio", value: SettingsTab.pixels.rawValue) { DimensionPresetsPane() }
         }
         .frame(width: 500, height: 380)
     }
@@ -85,6 +85,8 @@ private struct DimensionPresetsPane: View {
                             settings.dimensionPresets.removeAll { $0.id == preset.id }
                         } label: { Image(systemName: "trash") }
                         .buttonStyle(.borderless)
+                        .help("Delete Preset")
+                        .accessibilityLabel("Delete \(preset.name)")
                     }
                 }
             }
@@ -93,7 +95,7 @@ private struct DimensionPresetsPane: View {
             HStack {
                 Button {
                     settings.dimensionPresets.append(.init(name: "New", pixels: 1024))
-                } label: { Label("Add Size", systemImage: "plus") }
+                } label: { Label("Add Preset", systemImage: "plus") }
                 Spacer()
             }
             .padding(12)
@@ -141,6 +143,8 @@ private struct SizePresetsPane: View {
                             settings.sizePresets.removeAll { $0.id == preset.id }
                         } label: { Image(systemName: "trash") }
                         .buttonStyle(.borderless)
+                        .help("Delete Preset")
+                        .accessibilityLabel("Delete \(preset.name)")
                     }
                 }
             }
@@ -149,7 +153,7 @@ private struct SizePresetsPane: View {
             HStack {
                 Button {
                     settings.sizePresets.append(.init(name: "New", value: 1, unit: .mb))
-                } label: { Label("Add Limit", systemImage: "plus") }
+                } label: { Label("Add Preset", systemImage: "plus") }
                 Spacer()
             }
             .padding(12)

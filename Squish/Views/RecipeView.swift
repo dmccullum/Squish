@@ -140,6 +140,7 @@ struct MenuAnchor: NSViewRepresentable {
 private struct SizeEditor: View {
     @Environment(SquishSettings.self) private var settings
     @Environment(RecipeEditor.self) private var editor
+    @FocusState private var valueFocused: Bool
 
     var body: some View {
         @Bindable var settings = settings
@@ -149,6 +150,7 @@ private struct SizeEditor: View {
                 TextField("Size", value: $settings.sizeValue, format: .number)
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 80)
+                    .focused($valueFocused)
                 Picker("Unit", selection: $settings.sizeUnit) {
                     ForEach(SizeUnit.allCases) { Text($0.rawValue).tag($0) }
                 }
@@ -164,6 +166,7 @@ private struct SizeEditor: View {
         }
         .padding(16)
         .frame(width: 240)
+        .defaultFocus($valueFocused, true)
         .onAppear { settings.sizeTargetEnabled = true }
     }
 }
@@ -171,6 +174,8 @@ private struct SizeEditor: View {
 private struct DimensionEditor: View {
     @Environment(SquishSettings.self) private var settings
     @Environment(RecipeEditor.self) private var editor
+    /// The label of the focused pixel field.
+    @FocusState private var focused: String?
 
     var body: some View {
         @Bindable var settings = settings
@@ -204,7 +209,17 @@ private struct DimensionEditor: View {
         }
         .padding(16)
         .frame(width: 300)
+        .defaultFocus($focused, firstField)
         .onAppear { settings.dimensionEnabled = true }
+    }
+
+    /// The field that takes focus when the popover opens.
+    private var firstField: String {
+        switch settings.dimensionMode {
+        case .maxLongSide: return "Longest side"
+        case .maxWidth, .fit: return "Width"
+        case .maxHeight:   return "Height"
+        }
     }
 
     private func pixelField(_ label: String, _ value: Binding<Int>) -> some View {
@@ -213,6 +228,7 @@ private struct DimensionEditor: View {
             TextField(label, value: value, format: .number.grouping(.never))
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 68)
+                .focused($focused, equals: label)
             Text("px").foregroundStyle(.secondary).fixedSize()
         }
     }

@@ -45,8 +45,8 @@ nonisolated enum CompressError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .cannotRead:   return "Couldn't read the image."
-        case .cannotEncode: return "Couldn't encode the image."
+        case .cannotRead:   return "Couldn’t read the image."
+        case .cannotEncode: return "Couldn’t encode the image."
         }
     }
 }

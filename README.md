@@ -24,7 +24,7 @@
 - **Settings as pop-up menus:** file size, dimensions, format, and destination are each a pop-up menu in the window.
 - **Sliders:** File size and Dimensions open on a slider. Dragging applies the value while the menu stays open.
 - **File size presets:** Uploads 50 MB, Print 25 MB, Share 10 MB, Email 5 MB, Web 1 MB, Small 500 KB. Or drag to any limit, or pick no limit.
-- **Dimension limits:** long side, width, or height, or **Fit Within a Box…** for both. Images are never upscaled.
+- **Dimension limits:** long side, width, or height, or **Custom Dimensions…** for a width × height box. Images are never upscaled.
 - **Formats:** JPEG, or HEIC for smaller files on Apple devices. Reads anything ImageIO reads, including PNG and WebP.
 - **Folders:** drop a folder and its structure is kept in the output.
 - **Results list:** before and after size for each file. Drag rows into Mail or Slack, press Space for Quick Look, double-click to open.

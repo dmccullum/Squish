@@ -191,7 +191,7 @@ final class JobRunner {
                 // Re-encoding would only bloat it — keep the original bytes.
                 try Data(contentsOf: job.source).write(to: dest, options: .atomic)
                 result.finalBytes = result.originalBytes
-                result.note = "Already optimized — kept original."
+                result.note = "Already optimized — kept original"
             } else {
                 try output.data.write(to: dest, options: .atomic)
                 result.finalBytes = output.data.count

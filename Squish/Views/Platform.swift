@@ -29,7 +29,7 @@ enum Platform {
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = true
         panel.allowedContentTypes = [.image, .folder]
-        panel.prompt = "Add"
+        panel.prompt = "Squish"
         panel.message = "Choose images or a folder to squish"
         return await panel.present() ? panel.urls : []
     }

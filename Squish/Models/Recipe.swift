@@ -201,8 +201,8 @@ extension SquishSettings {
             }
             return o
         }
-        var fit = RecipeOption.command(style == .popUp ? "Fit Within a Box…" : "Custom Dimensions…",
-                                       preview: .init(title: "Fit within a box", detail: "Set a width and height to stay inside")) {
+        var fit = RecipeOption.command("Custom Dimensions…",
+                                       preview: .init(title: "Custom dimensions", detail: "Type a long side, width, height, or a box to fit")) {
             actions.editCustom(.dimensions)
         }
         fit.editsInSentence = true
