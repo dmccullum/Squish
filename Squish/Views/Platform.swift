@@ -1,4 +1,5 @@
 import AppKit
+import DMKit
 import UniformTypeIdentifiers
 
 /// Thin AppKit helpers for things SwiftUI doesn't cover natively on macOS.
@@ -10,8 +11,16 @@ enum Platform {
         NSWorkspace.shared.activateFileViewerSelecting(existing)
     }
 
-    /// Prompt for an output folder.
-    static func chooseFolder() async -> URL? {
+    /// The window a menu-bar command's panel attaches to: the key window (the
+    /// main window or Settings), or the main window while a panel such as
+    /// Quick Look is key.
+    static var commandWindow: NSWindow? {
+        if let key = NSApp.keyWindow, !(key is NSPanel) { return key }
+        return NSApp.mainWindow
+    }
+
+    /// Prompt for an output folder, as a sheet on `window`.
+    static func chooseFolder(in window: NSWindow?) async -> URL? {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
@@ -19,11 +28,11 @@ enum Platform {
         panel.allowsMultipleSelection = false
         panel.prompt = "Choose"
         panel.message = "Choose where Squish should save images"
-        return await panel.present() ? panel.url : nil
+        return await panel.present(in: window) == .OK ? panel.url : nil
     }
 
-    /// Prompt for images and/or folders to squish.
-    static func chooseInputs() async -> [URL] {
+    /// Prompt for images and/or folders to squish, as a sheet on `window`.
+    static func chooseInputs(in window: NSWindow?) async -> [URL] {
         let panel = NSOpenPanel()
         panel.canChooseFiles = true
         panel.canChooseDirectories = true
@@ -31,19 +40,6 @@ enum Platform {
         panel.allowedContentTypes = [.image, .folder]
         panel.prompt = "Squish"
         panel.message = "Choose images or a folder to squish"
-        return await panel.present() ? panel.urls : []
-    }
-}
-
-extension NSOpenPanel {
-    /// Shows the panel as a sheet on the front window (the main window or
-    /// Settings), or app-modal when no window is open. Returns whether the
-    /// person confirmed.
-    func present() async -> Bool {
-        guard let window = [NSApp.keyWindow, NSApp.mainWindow].compactMap({ $0 }).first(where: { !($0 is NSPanel) }) else {
-            return runModal() == .OK
-        }
-        guard window.attachedSheet == nil else { return false }
-        return await beginSheetModal(for: window) == .OK
+        return await panel.present(in: window) == .OK ? panel.urls : []
     }
 }

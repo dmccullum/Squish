@@ -61,6 +61,8 @@ struct RecipeOption: Identifiable {
 struct RecipeActions {
     var editCustom: (RecipeField) -> Void
     var editPresets: (RecipeField) -> Void
+    /// Asks for an output folder, as a sheet on the window the menu belongs to.
+    var chooseFolder: () async -> URL?
 }
 
 /// Where a recipe menu is shown. The sentence's pop-ups lead with a live dial
@@ -139,7 +141,7 @@ extension SquishSettings {
         case .size:       return sizeOptions(style, actions)
         case .dimensions: return dimensionOptions(style, actions)
         case .format:     return formatOptions()
-        case .location:   return locationOptions()
+        case .location:   return locationOptions(actions)
         }
     }
 
@@ -227,7 +229,7 @@ extension SquishSettings {
         }
     }
 
-    private func locationOptions() -> [RecipeOption] {
+    private func locationOptions(_ actions: RecipeActions) -> [RecipeOption] {
         var items: [RecipeOption] = [
             .choice("Next to the Originals", checked: outputMode == .auto) { self.outputMode = .auto },
         ]
@@ -238,7 +240,7 @@ extension SquishSettings {
         items.append(.separator)
         items.append(.command(chosenFolder == nil ? "Choose Folder…" : "Choose Another Folder…") {
             Task {
-                guard let url = await Platform.chooseFolder() else { return }
+                guard let url = await actions.chooseFolder() else { return }
                 self.chosenFolderPath = url.path
                 self.outputMode = .choose
             }

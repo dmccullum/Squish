@@ -1,5 +1,6 @@
-import SwiftUI
 import AppKit
+import DMKit
+import SwiftUI
 
 /// Which custom editor (if any) is open. Shared so the Recipe menu in the menu
 /// bar can open the same popovers as the sentence.
@@ -45,6 +46,7 @@ struct RecipeToken: View {
     @Environment(SquishSettings.self) private var settings
     @Environment(RecipeEditor.self) private var editor
     @Environment(\.openSettings) private var openSettings
+    @Environment(\.hostingWindow) private var window
     @State private var anchor = MenuAnchor.Box()
     @State private var hovering = false
     @State private var menuOpen = false
@@ -100,7 +102,8 @@ struct RecipeToken: View {
             editPresets: { field in
                 SettingsTab.select(field == .size ? .sizes : .pixels)
                 openSettings()
-            })
+            },
+            chooseFolder: { [window] in await Platform.chooseFolder(in: window) })
         let options = settings.options(for: field, style: .popUp, actions: actions)
         let controller = RecipeMenuController { editor.preview = $0 }
         let context = RecipeMenuContext(field: field, settings: settings) { editor.preview = $0 }

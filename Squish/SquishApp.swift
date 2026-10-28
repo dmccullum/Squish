@@ -8,6 +8,7 @@ struct SquishApp: App {
     var body: some Scene {
         Window("Squish", id: "main") {
             ContentView()
+                .providesHostingWindow()
                 .environment(app.settings)
                 .environment(app.runner)
                 .environment(app.editor)
@@ -77,7 +78,7 @@ struct SquishCommands: Commands {
         CommandGroup(replacing: .newItem) {
             Button("Squish Images…") {
                 Task {
-                    let urls = await Platform.chooseInputs()
+                    let urls = await Platform.chooseInputs(in: Platform.commandWindow)
                     guard !urls.isEmpty else { return }
                     if runner.hasFinished { runner.reset() }
                     runner.accept(urls, settings: settings)
@@ -143,7 +144,8 @@ private struct RecipeMenu: View {
                 editPresets: { field in
                     SettingsTab.select(field == .size ? .sizes : .pixels)
                     openSettings()
-                })
+                },
+                chooseFolder: { await Platform.chooseFolder(in: Platform.commandWindow) })
             ForEach(settings.options(for: field, style: .menuBar, actions: actions)) { option in
                 switch option.kind {
                 case .separator:

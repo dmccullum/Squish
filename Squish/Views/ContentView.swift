@@ -1,3 +1,4 @@
+import DMKit
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -7,6 +8,7 @@ struct ContentView: View {
     @Environment(RecipeEditor.self) private var editor
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.hostingWindow) private var window
 
     @State private var isTargeted = false
     @State private var hoveringHero = false
@@ -148,7 +150,7 @@ struct ContentView: View {
     private func chooseFiles() {
         guard !runner.isRunning else { return }
         Task {
-            let urls = await Platform.chooseInputs()
+            let urls = await Platform.chooseInputs(in: window)
             guard !urls.isEmpty else { return }
             runner.accept(urls, settings: settings)
         }
