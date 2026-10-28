@@ -47,7 +47,7 @@ struct ResultsView: View {
             preview = outputs(for: selection).first
         })
         .onAppear {
-            withAnimation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.5, dampingFraction: 0.45)) {
+            withAnimation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.5, dampingFraction: 0.7)) {
                 released = true
             }
             withAnimation(.easeOut(duration: reduceMotion ? 0 : 0.9).delay(0.1)) {
@@ -195,11 +195,19 @@ struct ResultsView: View {
 }
 
 private extension View {
-    /// Clips the results list to a hairline-bordered card whose corners nest
-    /// inside the window's.
-    func listCard() -> some View {
+    func listCard() -> some View { modifier(ListCard()) }
+}
+
+/// Clips the results list to a hairline-bordered card whose corners nest
+/// inside the window's. The hairline darkens with Increase Contrast.
+private struct ListCard: ViewModifier {
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    func body(content: Content) -> some View {
         let shape = ConcentricRectangle(corners: .concentric(minimum: .fixed(14)), isUniform: true)
-        return clipShape(shape).overlay(shape.stroke(Color.primary.opacity(0.08), lineWidth: 1))
+        content
+            .clipShape(shape)
+            .overlay(shape.stroke(Color.primary.opacity(contrast == .increased ? 0.35 : 0.08), lineWidth: 1))
     }
 }
 
@@ -213,6 +221,8 @@ private struct PercentText: View {
 
 private struct ResultRow: View {
     let result: JobResult
+    @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.displayScale) private var displayScale
     @State private var thumbnail: NSImage?
 
     var body: some View {
@@ -229,7 +239,7 @@ private struct ResultRow: View {
             badge
         }
         .padding(.vertical, 3)
-        .task(id: result.output) { thumbnail = await Thumbnails.load(result.output) }
+        .task(id: result.output) { thumbnail = await Thumbnails.load(result.output, scale: displayScale) }
         .help(result.output?.path ?? result.source.path)
     }
 
@@ -244,7 +254,7 @@ private struct ResultRow: View {
         }
         .frame(width: 38, height: 30)
         .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(Color.primary.opacity(0.1)))
+        .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(Color.primary.opacity(contrast == .increased ? 0.35 : 0.1)))
     }
 
     @ViewBuilder private var detail: some View {
@@ -286,10 +296,10 @@ private struct ResultRow: View {
 }
 
 enum Thumbnails {
-    static func load(_ url: URL?) async -> NSImage? {
+    static func load(_ url: URL?, scale: CGFloat) async -> NSImage? {
         guard let url else { return nil }
         let request = QLThumbnailGenerator.Request(fileAt: url, size: CGSize(width: 76, height: 60),
-                                                   scale: NSScreen.main?.backingScaleFactor ?? 2,
+                                                   scale: scale,
                                                    representationTypes: .thumbnail)
         return try? await QLThumbnailGenerator.shared.generateBestRepresentation(for: request).nsImage
     }

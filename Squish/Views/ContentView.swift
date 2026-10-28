@@ -6,6 +6,7 @@ struct ContentView: View {
     @Environment(JobRunner.self) private var runner
     @Environment(RecipeEditor.self) private var editor
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     @State private var isTargeted = false
     @State private var hoveringHero = false
@@ -36,9 +37,12 @@ struct ContentView: View {
         ZStack {
             Color(nsColor: .windowBackgroundColor)
             // A warm pool of light behind the clamp; brightens when files hover.
-            RadialGradient(colors: [Color.accentColor.opacity(isTargeted ? 0.30 : 0.13), .clear],
-                           center: UnitPoint(x: 0.5, y: 0.3), startRadius: 0, endRadius: 280)
-                .animation(.easeOut(duration: 0.25), value: isTargeted)
+            // Reduce Transparency leaves the plain window background.
+            if !reduceTransparency {
+                RadialGradient(colors: [Color.accentColor.opacity(isTargeted ? 0.30 : 0.13), .clear],
+                               center: UnitPoint(x: 0.5, y: 0.3), startRadius: 0, endRadius: 280)
+                    .animation(.easeOut(duration: 0.25), value: isTargeted)
+            }
         }
         .ignoresSafeArea()
     }
