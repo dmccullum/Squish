@@ -10,7 +10,9 @@ struct SquishApp: App {
                 .environment(app.settings)
                 .environment(app.runner)
                 .environment(app.editor)
-                .frame(width: 480, height: 440)
+                // Grows so the results list can show more rows; Zoom fills the screen.
+                .frame(minWidth: 480, idealWidth: 480, maxWidth: .infinity,
+                       minHeight: 440, idealHeight: 440, maxHeight: .infinity)
         }
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
