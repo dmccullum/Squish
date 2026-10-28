@@ -70,6 +70,7 @@ struct SquishCommands: Commands {
         CommandGroup(replacing: .newItem) {
             Button("Squish Images…", systemImage: "photo.stack") {
                 let urls = Platform.chooseInputs()
+                guard !urls.isEmpty else { return }
                 if runner.hasFinished { runner.reset() }
                 runner.accept(urls, settings: settings)
             }
