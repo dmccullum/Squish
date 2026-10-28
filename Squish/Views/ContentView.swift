@@ -143,9 +143,11 @@ struct ContentView: View {
 
     private func chooseFiles() {
         guard !runner.isRunning else { return }
-        let urls = Platform.chooseInputs()
-        guard !urls.isEmpty else { return }
-        runner.accept(urls, settings: settings)
+        Task {
+            let urls = await Platform.chooseInputs()
+            guard !urls.isEmpty else { return }
+            runner.accept(urls, settings: settings)
+        }
     }
 }
 

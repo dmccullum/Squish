@@ -69,10 +69,12 @@ struct SquishCommands: Commands {
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
             Button("Squish Images…") {
-                let urls = Platform.chooseInputs()
-                guard !urls.isEmpty else { return }
-                if runner.hasFinished { runner.reset() }
-                runner.accept(urls, settings: settings)
+                Task {
+                    let urls = await Platform.chooseInputs()
+                    guard !urls.isEmpty else { return }
+                    if runner.hasFinished { runner.reset() }
+                    runner.accept(urls, settings: settings)
+                }
             }
             .keyboardShortcut("o")
             .disabled(runner.isRunning)

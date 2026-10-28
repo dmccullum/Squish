@@ -237,7 +237,8 @@ extension SquishSettings {
         }
         items.append(.separator)
         items.append(.command(chosenFolder == nil ? "Choose Folder…" : "Choose Another Folder…") {
-            if let url = Platform.chooseFolder() {
+            Task {
+                guard let url = await Platform.chooseFolder() else { return }
                 self.chosenFolderPath = url.path
                 self.outputMode = .choose
             }
