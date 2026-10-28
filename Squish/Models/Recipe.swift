@@ -48,6 +48,8 @@ struct RecipeOption: Identifiable {
     var checked = false
     /// The "Any File Size" / "Any Dimensions" item, which the dial unchecks live.
     var isAny = false
+    /// Opens a popover on the sentence, so it only works while the sentence is on screen.
+    var editsInSentence = false
     var preview: RecipePreview?
     var children: [RecipeOption] = []
     var action: () -> Void = {}
@@ -178,6 +180,9 @@ extension SquishSettings {
             actions.editPresets(.size)
         }
 
+        var custom = RecipeOption.command("Custom Size…") { actions.editCustom(.size) }
+        custom.editsInSentence = true
+
         switch style {
         case .popUp:
             return [.dial, .separator,
@@ -186,7 +191,7 @@ extension SquishSettings {
         case .menuBar:
             return [any, .separator] + presets + [
                 .separator,
-                .command("Custom Size…") { actions.editCustom(.size) },
+                custom,
                 edit,
             ]
         }
@@ -210,10 +215,11 @@ extension SquishSettings {
             }
             return o
         }
-        let fit = RecipeOption.command(style == .popUp ? "Fit Within a Box…" : "Custom Dimensions…",
+        var fit = RecipeOption.command(style == .popUp ? "Fit Within a Box…" : "Custom Dimensions…",
                                        preview: .init(title: "Fit within a box", detail: "Set a width and height to stay inside")) {
             actions.editCustom(.dimensions)
         }
+        fit.editsInSentence = true
         let edit = RecipeOption.command("Edit Presets…",
                                         preview: .init(title: "Edit presets", detail: "Add, rename or remove sizes in Settings")) {
             actions.editPresets(.dimensions)

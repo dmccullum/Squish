@@ -88,7 +88,7 @@ struct SquishCommands: Commands {
         }
         CommandMenu("Recipe") {
             ForEach(RecipeField.allCases) { field in
-                RecipeMenu(field: field, settings: settings, editor: editor)
+                RecipeMenu(field: field, settings: settings, runner: runner, editor: editor)
             }
         }
     }
@@ -98,6 +98,7 @@ struct SquishCommands: Commands {
 private struct RecipeMenu: View {
     let field: RecipeField
     let settings: SquishSettings
+    let runner: JobRunner
     let editor: RecipeEditor
     @Environment(\.openSettings) private var openSettings
 
@@ -115,6 +116,7 @@ private struct RecipeMenu: View {
                     Divider()
                 case .command:
                     Button(option.title, action: option.action)
+                        .disabled(option.editsInSentence && (runner.isRunning || runner.hasFinished))
                 case .choice:
                     Toggle(isOn: Binding(get: { option.checked }, set: { _ in option.action() })) {
                         Text(option.detail.map { "\(option.title) (\($0))" } ?? option.title)
