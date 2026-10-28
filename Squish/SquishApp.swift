@@ -86,7 +86,11 @@ struct SquishCommands: Commands {
             Button("Open") { selection?.urls.forEach { NSWorkspace.shared.open($0) } }
                 .keyboardShortcut(.downArrow)
                 .disabled(selection?.urls.isEmpty ?? true)
-            Button("Show in Finder") { Platform.reveal(runner.outputs) }
+            Button("Show in Finder") {
+                // The selected results, or all of them when nothing is selected.
+                let selected = selection?.urls ?? []
+                Platform.reveal(selected.isEmpty ? runner.outputs : selected)
+            }
                 .keyboardShortcut("r", modifiers: [.command, .shift])
                 .disabled(runner.outputs.isEmpty)
             Button(quickLookTitle) { selection?.quickLook() }

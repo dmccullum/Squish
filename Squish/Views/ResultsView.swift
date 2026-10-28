@@ -145,6 +145,12 @@ struct ResultsView: View {
         runner.results.filter { ids.contains($0.id) }.compactMap(\.output)
     }
 
+    /// The selected outputs, or every output when nothing is selected.
+    private var revealTargets: [URL] {
+        let selected = outputs(for: selection)
+        return selected.isEmpty ? runner.outputs : selected
+    }
+
     /// Puts the files themselves on the pasteboard, for pasting into Finder or Mail.
     private func copy(_ urls: [URL]) {
         NSPasteboard.general.clearContents()
@@ -170,7 +176,7 @@ struct ResultsView: View {
     private var footer: some View {
         HStack {
             if !runner.outputs.isEmpty {
-                Button("Show in Finder") { Platform.reveal(runner.outputs) }
+                Button("Show in Finder") { Platform.reveal(revealTargets) }
                     .buttonStyle(.glass)
             }
             Spacer()
@@ -178,14 +184,14 @@ struct ResultsView: View {
                 .font(.callout)
                 .foregroundStyle(.tertiary)
             Spacer()
-            Button("Done") { runner.reset() }
+            Button("Clear Results") { runner.reset() }
                 .buttonStyle(.glassProminent)
                 .keyboardShortcut(.defaultAction)
         }
         .padding(16)
         .background {
-            // Escape also means Done; the visible button already answers Return.
-            Button("Done") { runner.reset() }
+            // Escape also clears; the visible button already answers Return.
+            Button("Clear Results") { runner.reset() }
                 .keyboardShortcut(.cancelAction)
                 .opacity(0)
                 .allowsHitTesting(false)

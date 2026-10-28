@@ -58,10 +58,10 @@ Drop images or folders on the window or on Squish in the Dock. Other ways in:
 | --- | --- |
 | ⌘O | Choose images |
 | ⌘↓ | Open the selected results |
-| ⇧⌘R | Show results in Finder |
+| ⇧⌘R | Show the selected results in Finder, or all of them |
 | Space or ⌘Y | Quick Look the selected result |
 | ⌘C | Copy the selected results as files |
-| Return or Esc | Clear the results (Done) |
+| Return or Esc | Clear the results |
 | ⌘. | Stop the running batch |
 | ⌘, | Settings |
 
