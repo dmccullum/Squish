@@ -108,12 +108,12 @@ struct SquishCommands: Commands {
                 .keyboardShortcut(".")
                 .disabled(!runner.isRunning)
         }
-        CommandGroup(replacing: .help) {
-            Button("Squish Help") {
-                NSWorkspace.shared.open(URL(string: "https://github.com/dmccullum/Squish#readme")!)
-            }
-            .keyboardShortcut("?")
-        }
+        FamilyHelpCommands(
+            help: URL(string: "https://github.com/dmccullum/Squish#readme")!,
+            // The README has no heading of its own for shortcuts; the table is under Usage.
+            keyboardShortcuts: .url(URL(string: "https://github.com/dmccullum/Squish#usage")!),
+            reportIssue: URL(string: "https://github.com/dmccullum/Squish/issues/new")
+        )
         CommandMenu("Recipe") {
             ForEach(RecipeField.allCases) { field in
                 RecipeMenu(field: field, settings: settings, runner: runner, editor: editor)
