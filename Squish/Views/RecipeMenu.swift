@@ -56,8 +56,6 @@ enum RecipeMenuBuilder {
                 if let symbol = option.symbol {
                     item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?
                         .withSymbolConfiguration(.init(pointSize: 13, weight: .regular))
-                } else if let pixels = option.scaleIcon {
-                    item.image = Self.scaleIcon(pixels: pixels)
                 }
                 item.representedObject = PreviewBox(option.preview)
                 if option.isAny { item.tag = Self.anyTag }
@@ -67,22 +65,6 @@ enum RecipeMenuBuilder {
             }
         }
         return (menu, selected)
-    }
-
-    /// A tiny dusk-coloured frame drawn to scale, so 4K reads bigger than Thumbnail.
-    static func scaleIcon(pixels: Int) -> NSImage {
-        let side = 18.0
-        let w = (5 + 13 * (min(Double(pixels), 4096) / 4096).squareRoot()).rounded()
-        let h = (w * 0.72).rounded()
-        return NSImage(size: NSSize(width: side, height: side), flipped: false) { _ in
-            let rect = NSRect(x: (side - w) / 2, y: (side - h) / 2, width: w, height: h)
-            let path = NSBezierPath(roundedRect: rect, xRadius: 2.5, yRadius: 2.5)
-            NSGradient(starting: NSColor(Palette.sky1), ending: NSColor(Palette.sky0))?.draw(in: path, angle: 90)
-            NSColor.black.withAlphaComponent(0.25).setStroke()
-            path.lineWidth = 0.5
-            path.stroke()
-            return true
-        }
     }
 }
 

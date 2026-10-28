@@ -45,7 +45,6 @@ struct RecipeOption: Identifiable {
     var title = ""
     var detail: String?
     var symbol: String?
-    var scaleIcon: Int?
     var checked = false
     /// The "Any File Size" / "Any Dimensions" item, which the dial unchecks live.
     var isAny = false
@@ -200,7 +199,7 @@ extension SquishSettings {
         }
         any.isAny = true
         let presets: [RecipeOption] = sortedDimensionPresets.map { p in
-            var o = RecipeOption.choice(p.name, detail: "\(p.pixels) px",
+            let o = RecipeOption.choice(p.name, detail: "\(p.pixels) px",
                                         checked: dimensionEnabled && dimensionMode == .maxLongSide && longSide == p.pixels,
                                         preview: .init(photoScale: RecipeScale.photoScale(pixels: p.pixels),
                                                        title: "\(p.name) · \(p.pixels) px",
@@ -209,7 +208,6 @@ extension SquishSettings {
                 self.longSide = p.pixels
                 self.dimensionEnabled = true
             }
-            o.scaleIcon = p.pixels
             return o
         }
         let fit = RecipeOption.command(style == .popUp ? "Fit Within a Box…" : "Custom Dimensions…",
