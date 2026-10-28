@@ -1,3 +1,4 @@
+import DMKit
 import SwiftUI
 
 @main
@@ -23,6 +24,10 @@ struct SquishApp: App {
         Settings {
             SquishSettingsView()
                 .environment(app.settings)
+        }
+
+        AboutScene(links: AboutLinks(sourceCode: URL(string: "https://github.com/dmccullum/Squish"))) {
+            AboutClamp()
         }
     }
 }
