@@ -3,7 +3,7 @@ import Observation
 import UniformTypeIdentifiers
 
 /// Output image format. Native, lossy, ImageIO-encodable formats only.
-enum OutputFormat: String, CaseIterable, Identifiable, Codable {
+nonisolated enum OutputFormat: String, CaseIterable, Identifiable, Codable {
     case jpeg, heic
     var id: String { rawValue }
 
@@ -24,12 +24,12 @@ enum OutputFormat: String, CaseIterable, Identifiable, Codable {
     var utType: UTType {
         switch self {
         case .jpeg: return .jpeg
-        case .heic: return UTType("public.heic") ?? .heic
+        case .heic: return .heic
         }
     }
 }
 
-enum DimensionMode: String, CaseIterable, Identifiable, Codable {
+nonisolated enum DimensionMode: String, CaseIterable, Identifiable, Codable {
     case maxLongSide, maxWidth, maxHeight, fit
     var id: String { rawValue }
 
@@ -56,7 +56,7 @@ enum OutputMode: String, CaseIterable, Identifiable, Codable {
     var id: String { rawValue }
 }
 
-enum SizeUnit: String, CaseIterable, Identifiable, Codable {
+nonisolated enum SizeUnit: String, CaseIterable, Identifiable, Codable {
     case kb = "KB", mb = "MB"
     var id: String { rawValue }
     var multiplier: Int { self == .mb ? 1_000_000 : 1_000 }
@@ -69,7 +69,7 @@ enum SizeUnit: String, CaseIterable, Identifiable, Codable {
 }
 
 /// How a multi-image batch is compressed.
-enum CompressionStrategy: String, CaseIterable, Identifiable, Codable {
+nonisolated enum CompressionStrategy: String, CaseIterable, Identifiable, Codable {
     case prioritizeSize, matchQuality
     var id: String { rawValue }
 
@@ -107,7 +107,6 @@ struct SizePreset: Identifiable, Codable, Equatable, Hashable {
 }
 
 /// User-facing, persisted configuration. Backed by `UserDefaults`.
-@MainActor
 @Observable
 final class SquishSettings {
     // File-size target

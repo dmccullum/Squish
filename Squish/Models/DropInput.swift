@@ -1,7 +1,7 @@
 import Foundation
 
 /// How a drop arrived, which determines the default (auto) output placement.
-enum DropInput {
+nonisolated enum DropInput {
     case single(URL)          // one image file → sibling, renamed
     case group([URL])         // several items  → "Squished" subfolder in common parent
     case folder(URL)          // one folder     → sibling "<name> (squished)" folder
@@ -19,7 +19,7 @@ enum DropInput {
     }
 }
 
-extension URL {
+nonisolated extension URL {
     var isDirectory: Bool {
         (try? resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
     }

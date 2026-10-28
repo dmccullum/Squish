@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/macOS-14%2B-orange" alt="macOS 14+">
+  <img src="https://img.shields.io/badge/macOS-26%2B-orange" alt="macOS 26+">
   <img src="https://img.shields.io/badge/Swift-SwiftUI-orange" alt="SwiftUI">
   <img src="https://img.shields.io/badge/license-MIT-orange" alt="MIT license">
 </p>
@@ -32,7 +32,7 @@
 
 ## Install
 
-Squish is not sandboxed and is not notarized, so you build it yourself. You need macOS 14+ and Xcode 26.
+Squish is not sandboxed and is not notarized, so you build it yourself. You need macOS 26 or later and Xcode 26 or later.
 
 ```sh
 git clone https://github.com/dmccullum/Squish.git

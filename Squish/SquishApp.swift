@@ -27,7 +27,6 @@ struct SquishApp: App {
 
 /// Owns the app's state so files can arrive before (or without) the window:
 /// the Dock icon, Open With, and Finder's Services menu all land here.
-@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let settings = SquishSettings()
     let runner = JobRunner()

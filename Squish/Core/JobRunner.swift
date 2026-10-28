@@ -4,7 +4,6 @@ import UniformTypeIdentifiers
 
 /// Orchestrates a batch squish: expands the drop, plans destinations,
 /// compresses concurrently, and publishes progress + results to the UI.
-@MainActor
 @Observable
 final class JobRunner {
     var isRunning = false
@@ -125,7 +124,7 @@ final class JobRunner {
 
     // MARK: - Batch processing (off the main actor)
 
-    private struct Job: Sendable {
+    private nonisolated struct Job: Sendable {
         let source: URL
         let format: OutputFormat
         let destination: URL?

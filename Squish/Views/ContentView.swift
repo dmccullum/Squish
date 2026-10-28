@@ -150,25 +150,9 @@ struct ContentView: View {
 }
 
 extension View {
-    /// The rounded tray that holds the recipe and the progress bar. Liquid Glass
-    /// on macOS 26, its corners nested inside the window's; a quiet material before that.
-    @ViewBuilder func trayBackground() -> some View {
-        let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
-        if #available(macOS 26.0, *) {
-            self.glassEffect(.regular, in: ConcentricRectangle(corners: .concentric(minimum: .fixed(18)), isUniform: true))
-        } else {
-            self
-                .background(shape.fill(.regularMaterial))
-                .overlay(shape.strokeBorder(Color.primary.opacity(0.08)))
-        }
-    }
-
-    /// Glass buttons on macOS 26; bordered (or bordered prominent) before that.
-    @ViewBuilder func glassButtonStyle(prominent: Bool = false) -> some View {
-        if #available(macOS 26.0, *) {
-            if prominent { self.buttonStyle(.glassProminent) } else { self.buttonStyle(.glass) }
-        } else {
-            if prominent { self.buttonStyle(.borderedProminent) } else { self.buttonStyle(.bordered) }
-        }
+    /// The rounded tray that holds the recipe and the progress bar: Liquid Glass
+    /// with its corners nested inside the window's.
+    func trayBackground() -> some View {
+        glassEffect(.regular, in: ConcentricRectangle(corners: .concentric(minimum: .fixed(18)), isUniform: true))
     }
 }

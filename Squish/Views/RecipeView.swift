@@ -3,7 +3,6 @@ import AppKit
 
 /// Which custom editor (if any) is open. Shared so the Recipe menu in the menu
 /// bar can open the same popovers as the sentence.
-@MainActor
 @Observable
 final class RecipeEditor {
     var editing: RecipeField?

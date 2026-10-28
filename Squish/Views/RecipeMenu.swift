@@ -2,7 +2,6 @@ import AppKit
 import SwiftUI
 
 /// What a recipe menu needs to build its live dial and report previews.
-@MainActor
 struct RecipeMenuContext {
     let field: RecipeField
     let settings: SquishSettings
@@ -11,7 +10,6 @@ struct RecipeMenuContext {
 
 /// Builds native NSMenus from recipe options: right-aligned values, preset
 /// icons, a Presets submenu, and the live dial at the top.
-@MainActor
 enum RecipeMenuBuilder {
     /// Horizontal distance from a menu item's edge to its title text.
     static let titleInset: CGFloat = 22
@@ -75,7 +73,6 @@ final class PreviewBox {
 }
 
 /// Reports hover previews to the window and clears them when the menu closes.
-@MainActor
 final class RecipeMenuController: NSObject, NSMenuDelegate {
     private let report: (RecipePreview?) -> Void
     weak var root: NSMenu?
@@ -92,7 +89,8 @@ final class RecipeMenuController: NSObject, NSMenuDelegate {
     }
 }
 
-final class ClosureMenuItem: NSMenuItem {
+/// Nonisolated to match NSMenuItem's initializers; AppKit only fires it on the main thread.
+nonisolated final class ClosureMenuItem: NSMenuItem {
     private let handler: () -> Void
 
     init(title: String, handler: @escaping () -> Void) {
@@ -113,7 +111,6 @@ final class ClosureMenuItem: NSMenuItem {
 /// clamp, the value in big type, and a log-scale slider with detents at the
 /// presets and an orange "no limit" dot at its far end. Dragging applies immediately, like the volume slider in Control
 /// Center, and the menu stays open.
-@MainActor
 final class RecipeDialView: NSView {
     private let context: RecipeMenuContext
     private var settings: SquishSettings { context.settings }
@@ -361,7 +358,6 @@ final class RecipeDialView: NSView {
 
 /// The "no limit" detent at the end of the dial's track: a solid orange dot
 /// when there's no limit, a ring when there is one.
-@MainActor
 final class AnyDot: NSView {
     var onClick: () -> Void = {}
     var label = "" { didSet { toolTip = label; setAccessibilityLabel(label) } }

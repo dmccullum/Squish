@@ -6,18 +6,14 @@ import SwiftUI
 ///
 /// Geometry is authored in the icon's 1024-point space (see Icon/Source) so the
 /// window art and the app icon stay the same object.
-struct ClampView: View, Animatable {
+@Animatable
+struct ClampView: View {
     var squeeze: Double
     var twist: Double = 0
     /// Shrinks the photo (1 = full size) to act out a pixel limit.
     var photoScale: Double = 1
 
-    nonisolated var animatableData: AnimatablePair<AnimatablePair<Double, Double>, Double> {
-        get { AnimatablePair(AnimatablePair(squeeze, twist), photoScale) }
-        set { squeeze = newValue.first.first; twist = newValue.first.second; photoScale = newValue.second }
-    }
-
-    @Environment(\.colorScheme) private var scheme
+    @AnimatableIgnored @Environment(\.colorScheme) private var scheme
 
     // Visible part of the 1024 canvas.
     private static let art = CGRect(x: 120, y: 20, width: 780, height: 840)

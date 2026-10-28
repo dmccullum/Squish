@@ -90,7 +90,6 @@ enum RecipeScale {
     }
 }
 
-@MainActor
 extension SquishSettings {
 
     // MARK: - Sentence phrases

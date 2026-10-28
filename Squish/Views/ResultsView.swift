@@ -152,7 +152,7 @@ struct ResultsView: View {
         HStack {
             if !runner.outputs.isEmpty {
                 Button("Show in Finder") { Platform.reveal(runner.outputs) }
-                    .glassButtonStyle()
+                    .buttonStyle(.glass)
             }
             Spacer()
             Text("Drop more to keep going")
@@ -160,7 +160,7 @@ struct ResultsView: View {
                 .foregroundStyle(.tertiary)
             Spacer()
             Button("Done") { runner.reset() }
-                .glassButtonStyle(prominent: true)
+                .buttonStyle(.glassProminent)
                 .keyboardShortcut(.defaultAction)
         }
         .padding(16)
@@ -169,25 +169,16 @@ struct ResultsView: View {
 
 private extension View {
     /// Clips the results list to a hairline-bordered card whose corners nest
-    /// inside the window's on macOS 26.
-    @ViewBuilder func listCard() -> some View {
-        if #available(macOS 26.0, *) {
-            let shape = ConcentricRectangle(corners: .concentric(minimum: .fixed(14)), isUniform: true)
-            self.clipShape(shape).overlay(shape.stroke(Color.primary.opacity(0.08), lineWidth: 1))
-        } else {
-            let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
-            self.clipShape(shape).overlay(shape.strokeBorder(Color.primary.opacity(0.08)))
-        }
+    /// inside the window's.
+    func listCard() -> some View {
+        let shape = ConcentricRectangle(corners: .concentric(minimum: .fixed(14)), isUniform: true)
+        return clipShape(shape).overlay(shape.stroke(Color.primary.opacity(0.08), lineWidth: 1))
     }
 }
 
-/// "−81%" that counts up smoothly as `value` animates.
-private struct PercentText: View, Animatable {
+@Animatable
+private struct PercentText: View {
     var value: Double
-    nonisolated var animatableData: Double {
-        get { value }
-        set { value = newValue }
-    }
     var body: some View {
         Text("−\(Int(value.rounded()))%").monospacedDigit()
     }

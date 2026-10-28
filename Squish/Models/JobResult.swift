@@ -2,7 +2,7 @@ import Foundation
 import CoreGraphics
 
 /// The outcome of squishing a single file.
-struct JobResult: Identifiable {
+nonisolated struct JobResult: Identifiable {
     enum Status {
         case success
         case skipped(String)

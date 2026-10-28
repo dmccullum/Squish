@@ -4,7 +4,7 @@ import CoreGraphics
 import UniformTypeIdentifiers
 
 /// A value-type snapshot of the settings, safe to pass to background work.
-struct CompressionRequest {
+nonisolated struct CompressionRequest {
     var sizeTargetEnabled: Bool
     var targetBytes: Int
     var dimensionEnabled: Bool
@@ -30,7 +30,7 @@ struct CompressionRequest {
     }
 }
 
-struct CompressionOutput {
+nonisolated struct CompressionOutput {
     var data: Data
     var format: OutputFormat
     var originalSize: CGSize
@@ -39,7 +39,7 @@ struct CompressionOutput {
     var note: String?
 }
 
-enum CompressError: LocalizedError {
+nonisolated enum CompressError: LocalizedError {
     case cannotRead
     case cannotEncode
 
@@ -52,7 +52,7 @@ enum CompressError: LocalizedError {
 }
 
 /// Stateless image-compression engine built on ImageIO / CoreGraphics.
-enum ImageCompressor {
+nonisolated enum ImageCompressor {
     private static let minLongSide: CGFloat = 64
     private static let qualityIterations = 8
     private static let maxDownscaleSteps = 6

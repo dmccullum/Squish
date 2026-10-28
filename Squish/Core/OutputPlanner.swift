@@ -1,7 +1,7 @@
 import Foundation
 
 /// Value snapshot of placement-related settings.
-struct OutputConfig {
+nonisolated struct OutputConfig {
     var suffix: String
     var outputMode: OutputMode
     var chosenFolder: URL?
@@ -15,7 +15,7 @@ struct OutputConfig {
 
 /// Computes destination URLs for a batch, mirroring how the drop arrived.
 /// Use serially — it reserves names to avoid intra-batch collisions.
-final class OutputPlanner {
+nonisolated final class OutputPlanner {
     private let input: DropInput
     private let config: OutputConfig
     private let containerDir: URL?
