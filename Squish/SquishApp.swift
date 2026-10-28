@@ -86,6 +86,12 @@ struct SquishCommands: Commands {
                 .keyboardShortcut(".")
                 .disabled(!runner.isRunning)
         }
+        CommandGroup(replacing: .help) {
+            Button("Squish Help") {
+                NSWorkspace.shared.open(URL(string: "https://github.com/dmccullum/Squish#readme")!)
+            }
+            .keyboardShortcut("?")
+        }
         CommandMenu("Recipe") {
             ForEach(RecipeField.allCases) { field in
                 RecipeMenu(field: field, settings: settings, runner: runner, editor: editor)
