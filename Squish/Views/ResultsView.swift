@@ -19,6 +19,9 @@ struct ResultsView: View {
     private var savedPercent: Double {
         totalOriginal > 0 ? Double(savedBytes) / Double(totalOriginal) * 100 : 0
     }
+    /// Files the new format made larger than the originals.
+    private var grown: [JobResult] { successes.filter { $0.finalBytes > $0.originalBytes } }
+    private var addedBytes: Int { max(0, totalFinal - totalOriginal) }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -53,6 +56,12 @@ struct ResultsView: View {
                         .foregroundStyle(Color.squishInk)
                     Text("\(ByteFormat.string(savedBytes)) lighter · \(imageCount)")
                         .foregroundStyle(.secondary)
+                } else if addedBytes > 0 {
+                    Text("+\(Int((Double(addedBytes) / Double(totalOriginal) * 100).rounded()))%")
+                        .font(.system(size: 40, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                    Text("\(ByteFormat.string(addedBytes)) heavier · \(imageCount)")
+                        .foregroundStyle(.secondary)
                 } else {
                     Text(successes.isEmpty ? "Nothing squished" : "Already lean")
                         .font(.system(size: 28, weight: .bold, design: .rounded))
@@ -61,6 +70,12 @@ struct ResultsView: View {
                 }
                 if runner.wasCancelled {
                     Text("Cancelled after \(runner.results.count) of \(runner.totalFiles)")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                if !grown.isEmpty {
+                    Label(grown.count == 1 && successes.count == 1 ? "Larger in the new format" : "\(grown.count) got larger in the new format",
+                          systemImage: "arrow.up.right")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
@@ -243,6 +258,11 @@ private struct ResultRow: View {
                 .font(.callout.weight(.semibold))
                 .monospacedDigit()
                 .foregroundStyle(Color.squishInk)
+        } else if result.isSuccess, result.savedPercent <= -1 {
+            Text("+\(Int((-result.savedPercent).rounded()))%")
+                .font(.callout.weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
         }
     }
 }

@@ -195,7 +195,7 @@ final class JobRunner {
             } else {
                 try output.data.write(to: dest, options: .atomic)
                 result.finalBytes = output.data.count
-                result.note = output.note
+                result.note = wouldGrow ? "Larger as \(output.format.displayName)" : output.note
             }
             result.output = dest
             result.originalSize = output.originalSize
