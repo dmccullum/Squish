@@ -6,6 +6,10 @@
 	objectVersion = 70;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		1A0000000000000000000010 /* DMKit in Frameworks */ = {isa = PBXBuildFile; productRef = 1A0000000000000000000012 /* DMKit */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		1A0000000000000000000006 /* Squish.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Squish.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -19,6 +23,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1A0000000000000000000010 /* DMKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -61,6 +66,7 @@
 			);
 			name = Squish;
 			packageProductDependencies = (
+				1A0000000000000000000012 /* DMKit */,
 			);
 			productName = Squish;
 			productReference = 1A0000000000000000000006 /* Squish.app */;
@@ -91,6 +97,9 @@
 			);
 			mainGroup = 1A0000000000000000000002;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				1A0000000000000000000011 /* XCLocalSwiftPackageReference "../DMKit" */,
+			);
 			productRefGroup = 1A0000000000000000000003 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -256,6 +265,20 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		1A0000000000000000000011 /* XCLocalSwiftPackageReference "../DMKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../DMKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		1A0000000000000000000012 /* DMKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DMKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 1A0000000000000000000001 /* Project object */;
 }
