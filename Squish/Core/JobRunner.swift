@@ -1,4 +1,5 @@
 import AppKit
+import DMKit
 import Observation
 import UniformTypeIdentifiers
 
@@ -66,7 +67,10 @@ final class JobRunner {
         totalFiles = jobs.count
         results = []
         currentFile = jobs.first?.source.lastPathComponent ?? ""
-        updateDockBadge()
+        // A ✓ left from a batch that finished in the background would otherwise
+        // clear this batch's count when the app is next activated.
+        DockBadge.shared.clear()
+        updateDockTile()
 
         task = Task.detached(priority: .userInitiated) {
             let collected = await JobRunner.process(jobs: jobs, request: request, strategy: strategy) { done, total, name in
@@ -74,7 +78,7 @@ final class JobRunner {
                     self.completed = done
                     self.progress = Double(done) / Double(max(total, 1))
                     self.currentFile = name
-                    self.updateDockBadge()
+                    self.updateDockTile()
                 }
             }
             let cancelled = Task.isCancelled
@@ -92,18 +96,25 @@ final class JobRunner {
 
     // MARK: - Dock & sound
 
-    private func updateDockBadge() {
-        let tile = NSApp.dockTile
-        tile.badgeLabel = isRunning && totalFiles > 1 ? "\(completed)/\(totalFiles)" : nil
+    /// A multi-file batch shows its progress on the Dock icon as a bar and a
+    /// done/total badge, whether or not Squish is in front.
+    private func updateDockTile() {
+        guard isRunning, totalFiles > 1 else { return }
+        DockProgress.shared.show(progress)
+        // TODO(DMKit): DockBadge only badges while the app is inactive; the running
+        // count shows in front too, so it sets the tile's badge directly.
+        NSApp.dockTile.badgeLabel = "\(completed)/\(totalFiles)"
     }
 
     private func finish(playSound: Bool, cancelled: Bool) {
+        DockProgress.shared.hide()
         NSApp.dockTile.badgeLabel = nil
         guard !cancelled else { return }
         if playSound { NSSound(named: "Pop")?.play() }
         if !NSApp.isActive {
             // Let people know a long batch finished while they were elsewhere.
-            NSApp.dockTile.badgeLabel = "✓"
+            // DockBadge clears the ✓ when Squish is activated.
+            DockBadge.shared.showWhileInactive("✓")
             NSApp.requestUserAttention(.informationalRequest)
         }
     }

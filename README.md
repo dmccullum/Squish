@@ -28,7 +28,7 @@
 - **Formats:** JPEG, or HEIC for smaller files on Apple devices. Reads anything ImageIO reads, including PNG and WebP.
 - **Folders:** drop a folder and its structure is kept in the output.
 - **Results list:** before and after size for each file. Drag rows into Mail or Slack, press Space for Quick Look, double-click to open.
-- **Dock badge:** the icon badges and bounces when a batch finishes while you're in another app, with an optional sound.
+- **Dock icon:** during a batch of several images it shows a progress bar and a done/total count. When a batch finishes while you're in another app, it badges ✓ and bounces, with an optional sound.
 
 ## Install
 

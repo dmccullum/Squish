@@ -52,10 +52,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 
-    func applicationDidBecomeActive(_ notification: Notification) {
-        if !runner.isRunning { NSApp.dockTile.badgeLabel = nil }
-    }
-
     /// Services menu: "Squish Images" (NSMessage `squishFiles` in Info.plist).
     @objc func squishFiles(_ pboard: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString?>) {
         let urls = pboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
