@@ -149,6 +149,7 @@ final class SquishSettings {
     @ObservationIgnored private let d = UserDefaults.standard
 
     init() {
+        DefaultsMigration.run(defaults: d)
         d.register(defaults: [
             "sizeValue": 1.0,
             "sizeUnit": SizeUnit.mb.rawValue,

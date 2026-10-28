@@ -34,9 +34,12 @@ echo
 
 [[ -d "$APP" ]] || fail "The build finished without creating Squish.app."
 
-# Quit a running copy so the new one can replace it.
+# Quit a running copy so the new one can replace it. Builds before 2026-10
+# used the com.squish.app identifier.
 if /usr/bin/pgrep -xq Squish; then
-    /usr/bin/osascript -e 'quit app id "com.squish.app"' 2>/dev/null
+    for id in com.danielmccullum.Squish com.squish.app; do
+        /usr/bin/osascript -e "if application id \"$id\" is running then tell application id \"$id\" to quit" 2>/dev/null
+    done
     for _ in {1..20}; do /usr/bin/pgrep -xq Squish || break; sleep 0.25; done
 fi
 
