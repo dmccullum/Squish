@@ -20,6 +20,7 @@ struct SquishApp: App {
         .windowResizability(.contentSize)
         .commands {
             SquishCommands(settings: app.settings, runner: app.runner, editor: app.editor)
+            UndoCommands()
         }
 
         Settings {
