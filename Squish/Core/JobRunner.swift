@@ -86,7 +86,7 @@ final class JobRunner {
                 self.hasFinished = true
                 self.progress = 1
                 self.task = nil
-                self.finish(playSound: playSound && !cancelled)
+                self.finish(playSound: playSound, cancelled: cancelled)
             }
         }
     }
@@ -98,8 +98,9 @@ final class JobRunner {
         tile.badgeLabel = isRunning && totalFiles > 1 ? "\(completed)/\(totalFiles)" : nil
     }
 
-    private func finish(playSound: Bool) {
+    private func finish(playSound: Bool, cancelled: Bool) {
         NSApp.dockTile.badgeLabel = nil
+        guard !cancelled else { return }
         if playSound { NSSound(named: "Pop")?.play() }
         if !NSApp.isActive {
             // Let people know a long batch finished while they were elsewhere.
