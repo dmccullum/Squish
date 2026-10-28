@@ -105,7 +105,7 @@ nonisolated final class ClosureMenuItem: NSMenuItem {
 
 /// The live control at the top of the File Size and Dimensions menus: a mini
 /// clamp, the value in big type, and a log-scale slider with detents at the
-/// presets and an orange "no limit" dot at its far end. Dragging applies immediately, like the volume slider in Control
+/// presets and an accent-colored "no limit" dot at its far end. Dragging applies immediately, like the volume slider in Control
 /// Center, and the menu stays open.
 final class RecipeDialView: NSView {
     private let context: RecipeMenuContext
@@ -170,7 +170,7 @@ final class RecipeDialView: NSView {
 
         let rounded = NSFont.systemFont(ofSize: 22, weight: .bold)
         big.font = rounded.fontDescriptor.withDesign(.rounded).flatMap { NSFont(descriptor: $0, size: 22) } ?? rounded
-        big.textColor = .squishInk
+        big.textColor = .controlAccentColor
         big.frame = NSRect(x: x + 58, y: 12, width: w - 58, height: 28)
         big.lineBreakMode = .byTruncatingTail
         addSubview(big)
@@ -196,7 +196,7 @@ final class RecipeDialView: NSView {
         slider.frame = NSRect(x: x, y: y, width: w, height: 20)
         slider.isContinuous = true
         // Menus never become key, so the default fill would draw grey.
-        slider.trackFillColor = NSColor(named: "AccentColor")
+        slider.trackFillColor = .controlAccentColor
         slider.target = self
         slider.action = #selector(sliderChanged)
         slider.setAccessibilityLabel(isSize ? "File size limit" : "Dimension limit")
@@ -212,7 +212,7 @@ final class RecipeDialView: NSView {
             addSubview(tick)
         }
 
-        // The orange dot at the end of the track means "no limit".
+        // The dot at the end of the track means "no limit".
         anyDot.frame = NSRect(x: trackX(1) - 8, y: y + 20, width: 16, height: 10)
         anyDot.label = isSize ? "Any file size" : "Any dimensions"
         anyDot.onClick = { [weak self] in self?.chooseAny() }
@@ -352,7 +352,7 @@ final class RecipeDialView: NSView {
     }
 }
 
-/// The "no limit" detent at the end of the dial's track: a solid orange dot
+/// The "no limit" detent at the end of the dial's track: a solid accent dot
 /// when there's no limit, a ring when there is one.
 final class AnyDot: NSView {
     var onClick: () -> Void = {}
@@ -384,22 +384,22 @@ final class AnyDot: NSView {
     override func accessibilityPerformPress() -> Bool { onClick(); return true }
 
     override func draw(_ dirtyRect: NSRect) {
-        let orange = NSColor(named: "AccentColor") ?? .systemOrange
+        let accent = NSColor.controlAccentColor
         let d: CGFloat = hovering ? 9 : 7
         let rect = NSRect(x: (bounds.width - d) / 2, y: (bounds.height - d) / 2, width: d, height: d)
         if isOn {
             let glow = NSShadow()
-            glow.shadowColor = orange.withAlphaComponent(0.6)
+            glow.shadowColor = accent.withAlphaComponent(0.6)
             glow.shadowBlurRadius = 3
             glow.set()
-            orange.setFill()
+            accent.setFill()
             NSBezierPath(ovalIn: rect).fill()
         } else {
-            orange.withAlphaComponent(hovering ? 0.35 : 0.15).setFill()
+            accent.withAlphaComponent(hovering ? 0.35 : 0.15).setFill()
             NSBezierPath(ovalIn: rect).fill()
             let ring = NSBezierPath(ovalIn: rect.insetBy(dx: 0.5, dy: 0.5))
             ring.lineWidth = 1
-            orange.setStroke()
+            accent.setStroke()
             ring.stroke()
         }
     }

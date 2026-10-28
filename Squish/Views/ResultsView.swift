@@ -66,7 +66,7 @@ struct ResultsView: View {
                 if savedBytes > 0 {
                     PercentText(value: shownPercent)
                         .font(.system(size: 40, weight: .bold, design: .rounded))
-                        .foregroundStyle(Color.squishInk)
+                        .foregroundStyle(Color.accentColor)
                     Text("\(ByteFormat.string(savedBytes)) lighter · \(imageCount)")
                         .foregroundStyle(.secondary)
                 } else if addedBytes > 0 {
@@ -95,7 +95,7 @@ struct ResultsView: View {
                 if !failures.isEmpty {
                     Label("\(failures.count) couldn’t be squished", systemImage: "exclamationmark.triangle.fill")
                         .font(.callout)
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(.red)
                 }
             }
             Spacer(minLength: 0)
@@ -239,7 +239,7 @@ private struct ResultRow: View {
             if let thumbnail {
                 Image(nsImage: thumbnail).resizable().aspectRatio(contentMode: .fill)
             } else if !result.isSuccess {
-                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.red)
             }
         }
         .frame(width: 38, height: 30)
@@ -257,7 +257,7 @@ private struct ResultRow: View {
         case .skipped(let why):
             Text(why).font(.caption).foregroundStyle(.secondary)
         case .failed(let why):
-            Text(why).font(.caption).foregroundStyle(.orange).lineLimit(1)
+            Text(why).font(.caption).foregroundStyle(.red).lineLimit(1)
         }
     }
 
@@ -275,7 +275,7 @@ private struct ResultRow: View {
             Text("−\(Int(result.savedPercent.rounded()))%")
                 .font(.callout.weight(.semibold))
                 .monospacedDigit()
-                .foregroundStyle(Color.squishInk)
+                .foregroundStyle(Color.accentColor)
         } else if result.isSuccess, result.savedPercent <= -1 {
             Text("+\(Int((-result.savedPercent).rounded()))%")
                 .font(.callout.weight(.semibold))

@@ -58,7 +58,7 @@ struct RecipeToken: View {
                     .opacity(0.7)
             }
             .fontWeight(.semibold)
-            .foregroundStyle(Color.squishInk)
+            .foregroundStyle(Color.accentColor)
             .padding(.horizontal, 8)
             .padding(.vertical, 2)
             .background(

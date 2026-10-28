@@ -187,13 +187,3 @@ enum Palette {
     static let graphite0 = Color(.displayP3, red: 0.78, green: 0.80, blue: 0.84)
     static let graphite1 = Color(.displayP3, red: 0.52, green: 0.54, blue: 0.59)
 }
-
-extension NSColor {
-    /// Accent for text: deep enough to read on light backgrounds, bright on dark.
-    /// Same values as the AccentColor asset, so fills and menu highlights match it.
-    static let squishInk = NSColor(named: "AccentColor") ?? .systemOrange
-}
-
-extension Color {
-    static let squishInk = Color(nsColor: .squishInk)
-}
