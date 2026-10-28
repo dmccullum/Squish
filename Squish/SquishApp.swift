@@ -80,7 +80,7 @@ struct SquishCommands: Commands {
         CommandGroup(after: .newItem) {
             Divider()
             Button("Show in Finder", systemImage: "folder") { Platform.reveal(runner.outputs) }
-                .keyboardShortcut("r")
+                .keyboardShortcut("r", modifiers: [.command, .shift])
                 .disabled(runner.outputs.isEmpty)
             Button("Stop Squishing", systemImage: "stop.circle") { runner.cancel() }
                 .keyboardShortcut(".")
