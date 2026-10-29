@@ -16,7 +16,7 @@ struct ClampView: View {
     @AnimatableIgnored @Environment(\.colorScheme) private var scheme
 
     // Visible part of the 1024 canvas.
-    private static let art = CGRect(x: 120, y: 20, width: 780, height: 840)
+    static let art = CGRect(x: 120, y: 20, width: 780, height: 840)
 
     var body: some View {
         Canvas { ctx, size in
