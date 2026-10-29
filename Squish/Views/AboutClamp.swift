@@ -221,6 +221,7 @@ private struct SquishReadout: View {
     var squeeze: Double
     @AnimatableIgnored var popped: Bool
     @AnimatableIgnored @Environment(\.colorSchemeContrast) private var contrast
+    @AnimatableIgnored @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let stage = AboutClamp.stage(at: squeeze)
@@ -229,20 +230,25 @@ private struct SquishReadout: View {
             Text(ByteFormat.string(AboutClamp.original))
                 .foregroundStyle(contrast == .increased ? .primary : .secondary)
                 .frame(maxWidth: .infinity, alignment: .trailing)
-            Image(systemName: "arrow.right")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.tertiary)
-            HStack(spacing: 4) {
+            // At rest only the original shows, in the same place; the arrow and
+            // the squeezed size fade in once the screw moves.
+            Group {
+                Image(systemName: "arrow.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+                HStack(spacing: 4) {
                 Text(ByteFormat.string(AboutClamp.bytes(at: squeeze)))
                     .fontWeight(popped ? .bold : .semibold)
-                    .foregroundStyle(popped ? AnyShapeStyle(Color.accentColor)
-                                     : squeezed ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
-                if stage > 0 {
-                    Text("· \(AboutClamp.detents[stage - 1].name)")
-                        .foregroundStyle(contrast == .increased ? .primary : .secondary)
+                    .foregroundStyle(popped ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.primary))
+                    if stage > 0 {
+                        Text("· \(AboutClamp.detents[stage - 1].name)")
+                            .foregroundStyle(contrast == .increased ? .primary : .secondary)
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .opacity(squeezed ? 1 : 0)
+            .animation(reduceMotion ? nil : DMMotion.smooth.animation, value: squeezed)
         }
         .font(.callout)
         .monospacedDigit()
