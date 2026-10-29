@@ -47,6 +47,8 @@ struct ContentView: View {
             }
         }
         .ignoresSafeArea()
+        // On this full-window layer, so the outline follows the window's corners.
+        .dropTargetOutline(isTargeted, filled: false)
     }
 
     // MARK: - Ready / squishing
