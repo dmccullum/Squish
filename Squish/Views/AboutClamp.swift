@@ -83,10 +83,10 @@ struct AboutClamp: View {
 
             VStack(spacing: 2) {
                 SquishReadout(squeeze: squeeze, popped: popped)
-                    .frame(maxWidth: .infinity)
                 // The line stays reserved after the hint fades, so nothing below moves.
                 Text("Drag the handle down to squeeze")
                     .font(.callout)
+                    .multilineTextAlignment(.center)
                     .foregroundStyle(contrast == .increased ? .secondary : .tertiary)
                     .lineLimit(1)
                     .opacity(used ? 0 : 1)
@@ -289,30 +289,28 @@ private struct SquishReadout: View {
     var body: some View {
         let stage = AboutClamp.stage(at: squeeze)
         let squeezed = squeeze > 0.001
+        // At rest only the original shows, centered; once the screw moves the
+        // arrow and squeezed size fade in and the group recenters.
         HStack(spacing: 6) {
             Text(ByteFormat.string(AboutClamp.original))
                 .foregroundStyle(contrast == .increased ? .primary : .secondary)
-                .frame(maxWidth: .infinity, alignment: .trailing)
-            // At rest only the original shows, in the same place; the arrow and
-            // the squeezed size fade in once the screw moves.
-            Group {
-                Image(systemName: "arrow.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.tertiary)
-                HStack(spacing: 4) {
-                Text(ByteFormat.string(AboutClamp.bytes(at: squeeze)))
-                    .fontWeight(popped ? .bold : .semibold)
-                    .foregroundStyle(popped ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.primary))
+            if squeezed {
+                Group {
+                    Image(systemName: "arrow.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                    Text(ByteFormat.string(AboutClamp.bytes(at: squeeze)))
+                        .fontWeight(popped ? .bold : .semibold)
+                        .foregroundStyle(popped ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.primary))
                     if stage > 0 {
                         Text("· \(AboutClamp.detents[stage - 1].name)")
                             .foregroundStyle(contrast == .increased ? .primary : .secondary)
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .transition(.opacity)
             }
-            .opacity(squeezed ? 1 : 0)
-            .animation(reduceMotion ? nil : DMMotion.smooth.animation, value: squeezed)
         }
+        .animation(reduceMotion ? nil : DMMotion.smooth.animation, value: squeezed)
         .font(.callout)
         .monospacedDigit()
         .lineLimit(1)
