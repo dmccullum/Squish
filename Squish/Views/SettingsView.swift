@@ -9,16 +9,21 @@ enum SettingsTab: String {
     }
 }
 
+/// Each tab sets its own size: General fits its form, and the preset lists
+/// keep a fixed height so they can scroll. The window resizes as tabs change.
 struct SquishSettingsView: View {
     @AppStorage("settingsTab") private var tab = SettingsTab.general.rawValue
 
     var body: some View {
         TabView(selection: $tab) {
             Tab("General", systemImage: "gearshape", value: SettingsTab.general.rawValue) { GeneralPane() }
-            Tab("File Size", systemImage: "scalemass", value: SettingsTab.sizes.rawValue) { SizePresetsPane() }
-            Tab("Dimensions", systemImage: "aspectratio", value: SettingsTab.pixels.rawValue) { DimensionPresetsPane() }
+            Tab("File Size", systemImage: "scalemass", value: SettingsTab.sizes.rawValue) {
+                SizePresetsPane().frame(width: 500, height: 380)
+            }
+            Tab("Dimensions", systemImage: "aspectratio", value: SettingsTab.pixels.rawValue) {
+                DimensionPresetsPane().frame(width: 500, height: 380)
+            }
         }
-        .frame(width: 500, height: 380)
     }
 }
 
@@ -45,6 +50,10 @@ private struct GeneralPane: View {
             }
         }
         .formStyle(.grouped)
+        // Reports the form's full height instead of scrolling, so no space is left below it.
+        .scrollDisabled(true)
+        .frame(width: 500)
+        .fixedSize(horizontal: false, vertical: true)
     }
 }
 
