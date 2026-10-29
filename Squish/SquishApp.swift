@@ -21,6 +21,7 @@ struct SquishApp: App {
         .commands {
             SquishCommands(settings: app.settings, runner: app.runner, editor: app.editor)
             UndoCommands()
+            AboutCommands()
         }
 
         Settings {
