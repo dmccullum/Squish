@@ -2,22 +2,22 @@ import AppKit
 import DMKit
 import SwiftUI
 
-/// The About window's signature: the icon's clamp, live, squeezing a 24 MB
-/// photo. Drag down on it (or scroll down over it) to wind the screw: the jaw
-/// closes on the photo and the readout under it ticks the size down through
-/// Squish's own presets, Share 10 MB, Email 5 MB and Web 1 MB, with a haptic
-/// detent at each, to Small 500 KB, where it pops. Release and it springs
-/// open. A click runs the whole squeeze on its own.
+/// The About window's signature: the icon's clamp, live. Drag down on it (or
+/// scroll down over it) to wind the screw: the jaw closes on the photo, with a
+/// haptic detent at each of Squish's own presets (Share 10 MB, Email 5 MB and
+/// Web 1 MB, spaced as a 24 MB photo would shrink) and a pop when it bottoms
+/// out at Small 500 KB. Release and it springs open. A click runs the whole
+/// squeeze on its own.
 ///
-/// 0.6 s after the window opens the clamp gives one small squeeze and opens
-/// again, and “Drag the handle down to squeeze” sits under the readout until
-/// the first squeeze; until then the handle bobs every 4 s while the window
-/// is key and the pointer is elsewhere. Hovering leans the handle a little toward the pointer and shows the grab
-/// cursor. Under Reduce Motion there's no demo squeeze or bob, the handle doesn't turn or lean, the pop has
-/// no bounce, and the clamp eases open without a spring.
+/// While nobody holds it and the window is key, the clamp floats gently up and
+/// down. 0.6 s after the window opens it gives one small squeeze and opens
+/// again. Hovering leans the handle a little toward the pointer and shows the
+/// grab cursor. Under Reduce Motion there's no float or demo squeeze, the
+/// handle doesn't turn or lean, the pop has no bounce, and the clamp eases
+/// open without a spring.
 struct AboutClamp: View {
-    /// The photo before squeezing and the presets it passes on the way down,
-    /// as in Settings › File Size.
+    /// The photo's size before squeezing and the presets it passes on the way
+    /// down, as in Settings › File Size; they place the detents.
     static let original = 24_000_000
     static let detents: [(name: String, bytes: Int)] = [
         ("Share", 10_000_000), ("Email", 5_000_000), ("Web", 1_000_000), ("Small", 500_000)
@@ -50,24 +50,23 @@ struct AboutClamp: View {
                                         y: (54 - ClampView.art.minY) / ClampView.art.height * clampSize.height)
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.colorSchemeContrast) private var contrast
-    /// False while the About window isn't key, which pauses the idle bob.
+    /// False while the About window isn't key, which pauses the float.
     @Environment(\.appearsActive) private var appearsActive
 
-    /// 0 open, 1 shut; drives the readout.
+    /// 0 open, 1 shut.
     @State private var squeeze = 0.0
     /// The pop's overshoot past shut, 0…1.
     @State private var punch = 0.0
     /// Hover lean: a small extra squeeze and turn toward the pointer.
     @State private var leanDown = 0.0
     @State private var leanTurn = 0.0
-    /// The idle bob, 0…1: a few points down and an eighth of a turn.
-    @State private var bob = 0.0
-    /// `appearsActive` mirrored into state, which the idle task reads live.
-    @State private var windowIsKey = true
+    /// The float, 0 at rest to 1 at the top of the drift.
+    @State private var drift = 0.0
+    /// True from the first scroll tick until the clamp opens again.
+    @State private var scrolling = false
     @State private var dragStart: Double?
     @State private var popped = false
-    /// Set by the first drag, scroll or click; hides the hint and skips the demo.
+    /// Set by the first drag, scroll or click; skips the demo.
     @State private var used = false
     @State private var hovering = false
     @State private var pending: Task<Void, Never>?
@@ -76,24 +75,11 @@ struct AboutClamp: View {
     @State private var width: CGFloat = 0
 
     var body: some View {
-        VStack(spacing: 8) {
-            ClampView(squeeze: squeeze + punch * 0.12 + leanDown + bob * 0.16,
-                      twist: (reduceMotion ? 0 : squeeze * 1.5 * .pi) + leanTurn + bob * .pi / 4)
-                .frame(width: Self.clampSize.width, height: Self.clampSize.height)
-
-            VStack(spacing: 2) {
-                SquishReadout(squeeze: squeeze, popped: popped)
-                // The line stays reserved after the hint fades, so nothing below moves.
-                Text("Drag the handle down to squeeze")
-                    .font(.callout)
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(contrast == .increased ? .secondary : .tertiary)
-                    .lineLimit(1)
-                    .opacity(used ? 0 : 1)
-                    .animation(reduceMotion ? nil : DMMotion.smooth.animation, value: used)
-                    .accessibilityHidden(true)
-            }
-        }
+        ClampView(squeeze: squeeze + punch * 0.12 + leanDown,
+                  twist: (reduceMotion ? 0 : squeeze * 1.5 * .pi) + leanTurn)
+            .frame(width: Self.clampSize.width, height: Self.clampSize.height)
+            .offset(y: -Self.driftHeight * drift)
+            .frame(maxWidth: .infinity)
         .padding(.top, 4)
         .contentShape(Rectangle())
         .pointerStyle(dragStart == nil ? .grabIdle : .grabActive)
@@ -128,19 +114,23 @@ struct AboutClamp: View {
                     if hypot(value.translation.width, value.translation.height) < 3 { clamp() } else { release() }
                 }
         )
-        .onChange(of: appearsActive, initial: true) { _, active in windowIsKey = active }
-        .task {
-            await demo()
-            await idle()
+        .onChange(of: floats, initial: true) { _, floats in
+            if floats {
+                withAnimation(.easeInOut(duration: Self.driftCycle / 2).repeatForever(autoreverses: true)) { drift = 1 }
+            } else {
+                // A plain animation replaces the repeating one and settles it.
+                withDMAnimation(.smooth) { drift = 0 }
+            }
         }
+        .task { await demo() }
         .onDisappear {
             scroll.stop()
             pending?.cancel()
         }
         .accessibilityElement()
         .accessibilityLabel("Clamp")
-        .accessibilityValue("\(ByteFormat.string(Self.original)) squeezed to \(ByteFormat.string(Self.bytes(at: squeeze)))")
-        .accessibilityHint("Squeezes the photo to each file size preset")
+        .accessibilityValue(accessibilityValue)
+        .accessibilityHint("Squeezes the photo through each file size preset")
         .accessibilityAction { clamp() }
         .accessibilityAdjustableAction { direction in
             let stage = Self.stage(at: squeeze)
@@ -152,13 +142,31 @@ struct AboutClamp: View {
         .help("Drag down or scroll to squeeze")
     }
 
+    /// “Open”, or how far it's squeezed and the smallest preset it's reached.
+    private var accessibilityValue: String {
+        let stage = Self.stage(at: squeeze)
+        guard squeeze > 0.001 else { return "Open" }
+        let percent = "\(Int((squeeze * 100).rounded())) percent squeezed"
+        return stage == 0 ? percent : "\(percent), \(Self.detents[stage - 1].name)"
+    }
+
+    // MARK: - Float
+
+    /// Points the clamp drifts up, and seconds for one drift up and back.
+    private static let driftHeight: CGFloat = 4
+    private static let driftCycle = 2.8
+
+    /// Floats while the window is key and nobody holds or scrolls it.
+    private var floats: Bool {
+        !reduceMotion && appearsActive && dragStart == nil && !scrolling
+    }
+
     // MARK: - Squeezing
 
     /// Moves the screw under the pointer: snaps into a preset within a hair of
     /// it, ticks a detent on each preset crossed, and pops when it bottoms out.
     private func set(_ raw: Double) {
         used = true
-        bob = 0
         var value = min(max(raw, 0), 1)
         for detent in Self.detents.dropLast() {
             let at = Self.squeeze(at: detent.bytes)
@@ -210,6 +218,7 @@ struct AboutClamp: View {
     private func release() {
         pending?.cancel()
         popped = false
+        scrolling = false
         withDMAnimation(.spring) { squeeze = 0 }
     }
 
@@ -228,28 +237,11 @@ struct AboutClamp: View {
         }
     }
 
-    /// Until the first squeeze, every 4 s the handle bobs down and back with
-    /// a little wiggle. Sleeps between bobs, skips while hovered, dragged or
-    /// while the window isn't key, and ends with the window or the first
-    /// squeeze. Never under Reduce Motion.
-    private func idle() async {
-        guard !reduceMotion else { return }
-        while !used {
-            try? await Task.sleep(for: .seconds(4))
-            guard !Task.isCancelled, !used else { return }
-            guard windowIsKey, !hovering, dragStart == nil, squeeze == 0 else { continue }
-            withAnimation(.easeOut(duration: 0.12)) {
-                bob = 1
-            } completion: {
-                withAnimation(.spring(duration: 0.5, bounce: 0.3)) { bob = 0 }
-            }
-        }
-    }
-
     /// Scrolling down winds the screw; it opens once scrolling stops.
     private func scrolled(_ down: CGFloat) {
         guard dragStart == nil else { return }
         pending?.cancel()
+        scrolling = true
         set(squeeze + down / (Self.travel * 2))
         pending = Task {
             try? await Task.sleep(for: .milliseconds(350))
@@ -263,7 +255,7 @@ struct AboutClamp: View {
         guard !reduceMotion else { return }
         var down = 0.0, turn = 0.0
         if let p {
-            // The clamp is centered under 4 pt of top padding.
+            // The clamp is centered under 4 pt of top padding; the drift is ignored.
             let dx = p.x - ((width - Self.clampSize.width) / 2 + Self.handle.x)
             let dy = p.y - (4 + Self.handle.y)
             let near = max(0, 1 - hypot(dx, dy) / 110)
@@ -274,47 +266,6 @@ struct AboutClamp: View {
             leanDown = down
             leanTurn = turn
         }
-    }
-}
-
-/// “24 MB → 612 KB · Web”: the photo's size as the clamp squeezes it, read
-/// frame by frame so it ticks during a click or a spring back too.
-@Animatable
-private struct SquishReadout: View {
-    var squeeze: Double
-    @AnimatableIgnored var popped: Bool
-    @AnimatableIgnored @Environment(\.colorSchemeContrast) private var contrast
-    @AnimatableIgnored @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        let stage = AboutClamp.stage(at: squeeze)
-        let squeezed = squeeze > 0.001
-        // At rest only the original shows, centered; once the screw moves the
-        // arrow and squeezed size fade in and the group recenters.
-        HStack(spacing: 6) {
-            Text(ByteFormat.string(AboutClamp.original))
-                .foregroundStyle(contrast == .increased ? .primary : .secondary)
-            if squeezed {
-                Group {
-                    Image(systemName: "arrow.right")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.tertiary)
-                    Text(ByteFormat.string(AboutClamp.bytes(at: squeeze)))
-                        .fontWeight(popped ? .bold : .semibold)
-                        .foregroundStyle(popped ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.primary))
-                    if stage > 0 {
-                        Text("· \(AboutClamp.detents[stage - 1].name)")
-                            .foregroundStyle(contrast == .increased ? .primary : .secondary)
-                    }
-                }
-                .transition(.opacity)
-            }
-        }
-        .animation(reduceMotion ? nil : DMMotion.smooth.animation, value: squeezed)
-        .font(.callout)
-        .monospacedDigit()
-        .lineLimit(1)
-        .accessibilityHidden(true)
     }
 }
 
