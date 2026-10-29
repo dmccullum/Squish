@@ -11,8 +11,9 @@ import SwiftUI
 ///
 /// 0.6 s after the window opens the clamp gives one small squeeze and opens
 /// again, and “Drag the handle down to squeeze” sits under the readout until
-/// the first squeeze. Hovering leans the handle a little toward the pointer and shows the grab
-/// cursor. Under Reduce Motion there's no demo squeeze, the handle doesn't turn or lean, the pop has
+/// the first squeeze; until then the handle bobs every 4 s while the window
+/// is key and the pointer is elsewhere. Hovering leans the handle a little toward the pointer and shows the grab
+/// cursor. Under Reduce Motion there's no demo squeeze or bob, the handle doesn't turn or lean, the pop has
 /// no bounce, and the clamp eases open without a spring.
 struct AboutClamp: View {
     /// The photo before squeezing and the presets it passes on the way down,
@@ -50,6 +51,8 @@ struct AboutClamp: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorSchemeContrast) private var contrast
+    /// False while the About window isn't key, which pauses the idle bob.
+    @Environment(\.appearsActive) private var appearsActive
 
     /// 0 open, 1 shut; drives the readout.
     @State private var squeeze = 0.0
@@ -58,6 +61,10 @@ struct AboutClamp: View {
     /// Hover lean: a small extra squeeze and turn toward the pointer.
     @State private var leanDown = 0.0
     @State private var leanTurn = 0.0
+    /// The idle bob, 0…1: a few points down and an eighth of a turn.
+    @State private var bob = 0.0
+    /// `appearsActive` mirrored into state, which the idle task reads live.
+    @State private var windowIsKey = true
     @State private var dragStart: Double?
     @State private var popped = false
     /// Set by the first drag, scroll or click; hides the hint and skips the demo.
@@ -70,8 +77,8 @@ struct AboutClamp: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            ClampView(squeeze: squeeze + punch * 0.12 + leanDown,
-                      twist: (reduceMotion ? 0 : squeeze * 1.5 * .pi) + leanTurn)
+            ClampView(squeeze: squeeze + punch * 0.12 + leanDown + bob * 0.16,
+                      twist: (reduceMotion ? 0 : squeeze * 1.5 * .pi) + leanTurn + bob * .pi / 4)
                 .frame(width: Self.clampSize.width, height: Self.clampSize.height)
 
             VStack(spacing: 2) {
@@ -121,7 +128,11 @@ struct AboutClamp: View {
                     if hypot(value.translation.width, value.translation.height) < 3 { clamp() } else { release() }
                 }
         )
-        .task { await demo() }
+        .onChange(of: appearsActive, initial: true) { _, active in windowIsKey = active }
+        .task {
+            await demo()
+            await idle()
+        }
         .onDisappear {
             scroll.stop()
             pending?.cancel()
@@ -147,6 +158,7 @@ struct AboutClamp: View {
     /// it, ticks a detent on each preset crossed, and pops when it bottoms out.
     private func set(_ raw: Double) {
         used = true
+        bob = 0
         var value = min(max(raw, 0), 1)
         for detent in Self.detents.dropLast() {
             let at = Self.squeeze(at: detent.bytes)
@@ -213,6 +225,24 @@ struct AboutClamp: View {
         } completion: {
             guard !used, dragStart == nil else { return }
             withDMAnimation(.spring) { squeeze = 0 }
+        }
+    }
+
+    /// Until the first squeeze, every 4 s the handle bobs down and back with
+    /// a little wiggle. Sleeps between bobs, skips while hovered, dragged or
+    /// while the window isn't key, and ends with the window or the first
+    /// squeeze. Never under Reduce Motion.
+    private func idle() async {
+        guard !reduceMotion else { return }
+        while !used {
+            try? await Task.sleep(for: .seconds(4))
+            guard !Task.isCancelled, !used else { return }
+            guard windowIsKey, !hovering, dragStart == nil, squeeze == 0 else { continue }
+            withAnimation(.easeOut(duration: 0.12)) {
+                bob = 1
+            } completion: {
+                withAnimation(.spring(duration: 0.5, bounce: 0.3)) { bob = 0 }
+            }
         }
     }
 
