@@ -16,7 +16,7 @@ struct AboutClamp: View {
 
     var body: some View {
         ClampView(squeeze: squeeze, twist: twist)
-            .frame(height: 96)
+            .frame(height: 110)
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)

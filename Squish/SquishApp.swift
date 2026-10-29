@@ -29,7 +29,9 @@ struct SquishApp: App {
                 .environment(app.settings)
         }
 
-        AboutScene(links: AboutLinks(sourceCode: URL(string: "https://github.com/dmccullum/Squish"))) {
+        // The clamp is the icon art, so it stands in for the icon.
+        AboutScene(links: AboutLinks(sourceCode: URL(string: "https://github.com/dmccullum/Squish")),
+                   showsIcon: false) {
             AboutClamp()
         }
     }
