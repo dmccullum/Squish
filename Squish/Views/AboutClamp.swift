@@ -9,8 +9,10 @@ import SwiftUI
 /// detent at each, to Small 500 KB, where it pops. Release and it springs
 /// open. A click runs the whole squeeze on its own.
 ///
-/// Hovering leans the handle a little toward the pointer and shows the grab
-/// cursor. Under Reduce Motion the handle doesn't turn or lean, the pop has
+/// 0.6 s after the window opens the clamp gives one small squeeze and opens
+/// again, and “Drag the handle down to squeeze” sits under the readout until
+/// the first squeeze. Hovering leans the handle a little toward the pointer and shows the grab
+/// cursor. Under Reduce Motion there's no demo squeeze, the handle doesn't turn or lean, the pop has
 /// no bounce, and the clamp eases open without a spring.
 struct AboutClamp: View {
     /// The photo before squeezing and the presets it passes on the way down,
@@ -47,6 +49,7 @@ struct AboutClamp: View {
                                         y: (54 - ClampView.art.minY) / ClampView.art.height * clampSize.height)
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorSchemeContrast) private var contrast
 
     /// 0 open, 1 shut; drives the readout.
     @State private var squeeze = 0.0
@@ -57,6 +60,8 @@ struct AboutClamp: View {
     @State private var leanTurn = 0.0
     @State private var dragStart: Double?
     @State private var popped = false
+    /// Set by the first drag, scroll or click; hides the hint and skips the demo.
+    @State private var used = false
     @State private var hovering = false
     @State private var pending: Task<Void, Never>?
     @State private var scroll = ScrollMonitor()
@@ -69,8 +74,18 @@ struct AboutClamp: View {
                       twist: (reduceMotion ? 0 : squeeze * 1.5 * .pi) + leanTurn)
                 .frame(width: Self.clampSize.width, height: Self.clampSize.height)
 
-            SquishReadout(squeeze: squeeze, popped: popped)
-                .frame(maxWidth: .infinity)
+            VStack(spacing: 2) {
+                SquishReadout(squeeze: squeeze, popped: popped)
+                    .frame(maxWidth: .infinity)
+                // The line stays reserved after the hint fades, so nothing below moves.
+                Text("Drag the handle down to squeeze")
+                    .font(.callout)
+                    .foregroundStyle(contrast == .increased ? .secondary : .tertiary)
+                    .lineLimit(1)
+                    .opacity(used ? 0 : 1)
+                    .animation(reduceMotion ? nil : DMMotion.smooth.animation, value: used)
+                    .accessibilityHidden(true)
+            }
         }
         .padding(.top, 4)
         .contentShape(Rectangle())
@@ -106,6 +121,7 @@ struct AboutClamp: View {
                     if hypot(value.translation.width, value.translation.height) < 3 { clamp() } else { release() }
                 }
         )
+        .task { await demo() }
         .onDisappear {
             scroll.stop()
             pending?.cancel()
@@ -130,6 +146,7 @@ struct AboutClamp: View {
     /// Moves the screw under the pointer: snaps into a preset within a hair of
     /// it, ticks a detent on each preset crossed, and pops when it bottoms out.
     private func set(_ raw: Double) {
+        used = true
         var value = min(max(raw, 0), 1)
         for detent in Self.detents.dropLast() {
             let at = Self.squeeze(at: detent.bytes)
@@ -163,6 +180,7 @@ struct AboutClamp: View {
 
     /// A click: winds all the way down, pops, holds a beat, and opens.
     private func clamp() {
+        used = true
         pending?.cancel()
         withAnimation(DMMotion.spring.animation(reduceMotion: reduceMotion)) {
             squeeze = 1
@@ -181,6 +199,21 @@ struct AboutClamp: View {
         pending?.cancel()
         popped = false
         withDMAnimation(.spring) { squeeze = 0 }
+    }
+
+    /// Once per window opening, 0.6 s in: a small squeeze, about a fifth of
+    /// the travel (short of the first preset, so no detent), and back open.
+    /// Skipped under Reduce Motion or once the user has squeezed.
+    private func demo() async {
+        guard !reduceMotion else { return }
+        try? await Task.sleep(for: .milliseconds(600))
+        guard !Task.isCancelled, !used, dragStart == nil else { return }
+        withAnimation(DMMotion.spring.animation) {
+            squeeze = 0.18
+        } completion: {
+            guard !used, dragStart == nil else { return }
+            withDMAnimation(.spring) { squeeze = 0 }
+        }
     }
 
     /// Scrolling down winds the screw; it opens once scrolling stops.
