@@ -67,8 +67,7 @@ final class JobRunner {
         totalFiles = jobs.count
         results = []
         currentFile = jobs.first?.source.lastPathComponent ?? ""
-        // A ✓ left from a batch that finished in the background would otherwise
-        // clear this batch's count when the app is next activated.
+        // Drops a ✓ left from a batch that finished in the background.
         DockBadge.shared.clear()
         updateDockTile()
 
@@ -101,14 +100,12 @@ final class JobRunner {
     private func updateDockTile() {
         guard isRunning, totalFiles > 1 else { return }
         DockProgress.shared.show(progress)
-        // TODO(DMKit): DockBadge only badges while the app is inactive; the running
-        // count shows in front too, so it sets the tile's badge directly.
-        NSApp.dockTile.badgeLabel = "\(completed)/\(totalFiles)"
+        DockBadge.shared.show("\(completed)/\(totalFiles)")
     }
 
     private func finish(playSound: Bool, cancelled: Bool) {
         DockProgress.shared.hide()
-        NSApp.dockTile.badgeLabel = nil
+        DockBadge.shared.clear()
         guard !cancelled else { return }
         if playSound { NSSound(named: "Pop")?.play() }
         if !NSApp.isActive {
