@@ -249,15 +249,20 @@ struct PressView: View {
         // the card according to its own gap (lean opens one and closes the other).
         let far = 512 - edge - 80
         let cardLeft = warp(-A, 0).x, cardRight = warp(A, 0).x
-        drawJaw(in: &ctx, from: far, to: leftFace, rim: Self.rimLight(gap: cardLeft - leftFace), fine: fine, dark: dark)
-        drawJaw(in: &ctx, from: 1024 - far, to: rightFace, rim: Self.rimLight(gap: rightFace - cardRight), fine: fine, dark: dark)
+        let cardHalfHeight = 512 - warp(-A, -A).y
+        drawJaw(in: &ctx, from: far, to: leftFace, rim: Self.rimLight(gap: cardLeft - leftFace),
+                cardHalfHeight: cardHalfHeight, fine: fine, dark: dark)
+        drawJaw(in: &ctx, from: 1024 - far, to: rightFace, rim: Self.rimLight(gap: rightFace - cardRight),
+                cardHalfHeight: cardHalfHeight, fine: fine, dark: dark)
     }
 
-    /// How brightly the white card lights a jaw's pressing face: 1 from contact
-    /// on, half at a 110-unit gap, falling toward 0 as the jaw backs away to
-    /// the window edge. Smooth through contact (its slope there is 0).
+    /// How brightly the white card lights a jaw's inner end: 1 from contact on,
+    /// half at a 75-unit gap, about 0.17 at the idle hover and 0.08 with the
+    /// jaws at the edges of a 480-point window, so most of the change comes in
+    /// the last stretch before contact. Smooth through contact (its slope
+    /// there is 0).
     static func rimLight(gap: CGFloat) -> CGFloat {
-        let x = max(gap, 0) / 110
+        let x = max(gap, 0) / 75
         return 1 / (1 + x * x)
     }
 
@@ -323,9 +328,10 @@ struct PressView: View {
     /// One orange slab from `outer` (past the edge) to its pressing face at
     /// `face`, rounded on the face side. Lit along the top, shaded along the
     /// bottom, with a darker band on the pressing face that ends in a light
-    /// edge, as bright as `rim` (0…1, from `rimLight(gap:)`).
+    /// edge. Light from the card spills onto the rounded inner end, as bright
+    /// as `rim` (0…1, from `rimLight(gap:)`), strongest at the card's height.
     private func drawJaw(in ctx: inout GraphicsContext, from outer: CGFloat, to face: CGFloat, rim: CGFloat,
-                         fine: Bool, dark: Bool) {
+                         cardHalfHeight: CGFloat, fine: Bool, dark: Bool) {
         let left = outer < face
         let (top, bottom) = (Self.jawTop, Self.jawBottom)
         let rect = CGRect(x: min(outer, face), y: top, width: abs(face - outer), height: bottom - top)
@@ -359,13 +365,27 @@ struct PressView: View {
             l.fill(Path(CGRect(x: left ? face - band : face, y: top, width: band, height: bottom - top)),
                    with: .linearGradient(edge, startPoint: CGPoint(x: left ? face - band : face + band, y: 0),
                                          endPoint: CGPoint(x: face, y: 0)))
+            // Light spilling from the white card onto the rounded inner end:
+            // added (plus-lighter), so it lifts the coral toward peach and
+            // white like light, an ellipse centred on the face at the card's
+            // middle that fades about 190 units into the jaw and toward its
+            // top and bottom. Restrained in the small tile.
+            let spill = (fine ? min(1, 1.35 * rim) : 0.25 * rim)
+            if spill > 0.005 {
+                l.drawLayer { g in
+                    g.blendMode = .plusLighter
+                    let reach: CGFloat = 190, height = max(cardHalfHeight, 120) * 1.15
+                    g.translateBy(x: face, y: 512)
+                    g.scaleBy(x: reach / height, y: 1)
+                    g.fill(Path(CGRect(x: -2 * height, y: -height, width: 4 * height, height: 2 * height)),
+                           with: .radialGradient(Gradient(stops: [.init(color: Palette.spill.opacity(spill), location: 0),
+                                                                  .init(color: Palette.spill.opacity(spill * 0.75), location: 0.3),
+                                                                  .init(color: Palette.spill.opacity(spill * 0.35), location: 0.65),
+                                                                  .init(color: Palette.spill.opacity(0), location: 1)]),
+                                                 center: .zero, startRadius: 0, endRadius: height))
+                }
+            }
             guard fine else { return }
-            // Light reflected off the card, spreading a little way onto the face.
-            let glow: CGFloat = 30
-            l.fill(Path(CGRect(x: left ? face - glow : face, y: top, width: glow, height: bottom - top)),
-                   with: .linearGradient(Gradient(colors: [Palette.faceEdge.opacity(0), Palette.faceEdge.opacity(0.4 * rim)]),
-                                         startPoint: CGPoint(x: left ? face - glow : face + glow, y: 0),
-                                         endPoint: CGPoint(x: face, y: 0)))
             // Soft bevel: lit over the top 9 %, shaded over the bottom 14 %.
             l.fill(Path(rect), with: vertical([.init(color: .white.opacity(0.5), location: 0),
                                                 .init(color: .white.opacity(0), location: 0.09),
@@ -422,6 +442,8 @@ enum Palette {
     static let jaw1Dark = Color(hex: 0xB93E0C).mix(with: coral1Dark, by: coral)
     /// Shading on the jaws' bottom edge and pressing face, and the face's lit edge.
     static let burn = Color(hex: 0x5A1A00), faceEdge = Color(hex: 0xFFE2C4)
+    /// Light from the card spilling onto the jaws' inner ends.
+    static let spill = Color(hex: 0xFFE0B8)
     static let matDark = Color(hex: 0xE9ECF4)
     /// Pressure and fold shading on the picture, and pressure shading on the border.
     static let press = Color(hex: 0x0A1030), matShade = Color(hex: 0x1A2350)
