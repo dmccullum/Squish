@@ -12,7 +12,8 @@ import SwiftUI
 ///
 /// While nobody holds it and the window is key, the press floats gently up and
 /// down. 0.6 s after the window opens it gives one small squeeze and opens
-/// again. Hovering moves the jaws in a little and leans them toward the
+/// again. Hovering closes the jaws onto the card (fully with the pointer
+/// over its middle, as in the main window) and leans them toward the
 /// pointer, and shows the grab cursor. Under Reduce Motion there's no float,
 /// demo squeeze or lean, the pop has no bounce, and the jaws ease open
 /// without a spring.
@@ -42,7 +43,8 @@ struct AboutPress: View {
     @State private var squeeze = 0.0
     /// The pop's overshoot past shut, 0…1.
     @State private var punch = 0.0
-    /// Hover: a small extra squeeze, and the jaws' lean toward the pointer (−1…1).
+    /// Hover: the least squeeze shown (the jaws biting the card), and the jaws'
+    /// lean toward the pointer (−1…1).
     @State private var leanIn = 0.0
     @State private var lean = 0.0
     /// The float, 0 at rest to 1 at the top of the drift.
@@ -60,7 +62,9 @@ struct AboutPress: View {
     @State private var width: CGFloat = 0
 
     var body: some View {
-        PressView(squeeze: squeeze + punch * 0.15 + leanIn, framing: .bleed, lean: lean)
+        // The hover bite sets a floor rather than adding, so dragging past it
+        // tracks the pointer and the detents exactly.
+        PressView(squeeze: max(squeeze, leanIn) + punch * 0.15, framing: .bleed, lean: lean)
             .frame(maxWidth: .infinity)
             .frame(height: Self.pressHeight)
             .offset(y: -Self.driftHeight * drift)
@@ -237,8 +241,8 @@ struct AboutPress: View {
         }
     }
 
-    /// Moves the jaws in a little and leans them toward the pointer, more the
-    /// closer it is to the middle of the press.
+    /// Closes the jaws onto the card and leans them toward the pointer, more
+    /// the closer it is to the middle of the press.
     private func lean(toward p: CGPoint?) {
         guard !reduceMotion else { return }
         var inward = 0.0, side = 0.0
@@ -247,7 +251,8 @@ struct AboutPress: View {
             let dx = p.x - width / 2
             let dy = p.y - Self.pressHeight / 2
             let near = max(0, 1 - hypot(dx, dy) / 150)
-            inward = 0.06 * near
+            // Close to the middle the jaws meet the card, as in the main window.
+            inward = (PressView.contact + 0.05) * near
             side = near * Double(max(-1, min(1, dx / 60)))
         }
         withDMAnimation(.smooth) {

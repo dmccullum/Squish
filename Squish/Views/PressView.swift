@@ -89,7 +89,7 @@ struct PressView: View {
     /// may be in a bleed, so the gap to the card stays clear.
     private static let tileOpenFace: CGFloat = 384
     /// How much of each jaw shows at rest when it bleeds off a window edge.
-    private static let bleedStub: CGFloat = 130
+    private static let bleedStub: CGFloat = 190
 
     /// A fold running down the card, a little off vertical: where it meets
     /// the top and bottom edges (−1…1 across the card), the crumple at which
@@ -250,20 +250,23 @@ struct PressView: View {
         let far = 512 - edge - 80
         let cardLeft = warp(-A, 0).x, cardRight = warp(A, 0).x
         let cardHalfHeight = 512 - warp(-A, -A).y
-        drawJaw(in: &ctx, from: far, to: leftFace, gap: cardLeft - leftFace,
-                cardHalfHeight: cardHalfHeight, fine: fine, dark: dark)
-        drawJaw(in: &ctx, from: 1024 - far, to: rightFace, gap: rightFace - cardRight,
-                cardHalfHeight: cardHalfHeight, fine: fine, dark: dark)
+        // Pressing past contact lifts the light up to 15 % more, so a running
+        // batch reads as more intense than a grip.
+        let restGap = openFace - Self.rest
+        let lift = 1 + 0.15 * min(max((s - contact) / (1 - contact), 0), 1)
+        drawJaw(in: &ctx, from: far, to: leftFace, light: Self.rimLight(gap: cardLeft - leftFace, restGap: restGap) * lift,
+                cardHalfHeight: cardHalfHeight, gap: cardLeft - leftFace, fine: fine, dark: dark)
+        drawJaw(in: &ctx, from: 1024 - far, to: rightFace, light: Self.rimLight(gap: rightFace - cardRight, restGap: restGap) * lift,
+                cardHalfHeight: cardHalfHeight, gap: rightFace - cardRight, fine: fine, dark: dark)
     }
 
-    /// How brightly the white card lights a jaw's inner end: 1 from contact on,
-    /// half at a 75-unit gap, about 0.17 at the idle hover and 0.08 with the
-    /// jaws at the edges of a 480-point window, so most of the change comes in
-    /// the last stretch before contact. Smooth through contact (its slope
-    /// there is 0).
-    static func rimLight(gap: CGFloat) -> CGFloat {
-        let x = max(gap, 0) / 75
-        return 1 / (1 + x * x)
+    /// How brightly the white card lights a jaw's inner end, from its gap as a
+    /// fraction of the gap at rest (so it reads the same in any window width):
+    /// 0.07 at rest, rising on a smoothstep to 1 by a quarter of the rest gap
+    /// and staying 1 through contact. Half at about 0.62 of the rest gap.
+    static func rimLight(gap: CGFloat, restGap: CGFloat) -> CGFloat {
+        let t = min(max((1 - gap / max(restGap, 1)) / 0.75, 0), 1)
+        return 0.07 + 0.93 * t * t * (3 - 2 * t)
     }
 
     /// One fold's shading: a strip along the crease, mapped through the warp so
@@ -329,9 +332,8 @@ struct PressView: View {
     /// `face`, rounded on the face side. Lit along the top, shaded along the
     /// bottom, with a darker band on the pressing face that ends in a light
     /// edge. Light from the card falls on the rounded inner end, by `gap`.
-    private func drawJaw(in ctx: inout GraphicsContext, from outer: CGFloat, to face: CGFloat, gap: CGFloat,
-                         cardHalfHeight: CGFloat, fine: Bool, dark: Bool) {
-        let rim = Self.rimLight(gap: gap)
+    private func drawJaw(in ctx: inout GraphicsContext, from outer: CGFloat, to face: CGFloat, light rim: CGFloat,
+                         cardHalfHeight: CGFloat, gap: CGFloat, fine: Bool, dark: Bool) {
         let left = outer < face
         let (top, bottom) = (Self.jawTop, Self.jawBottom)
         let rect = CGRect(x: min(outer, face), y: top, width: abs(face - outer), height: bottom - top)
@@ -357,7 +359,7 @@ struct PressView: View {
             // light edge. In the small tile the edge only varies a little, so
             // the 46-point preview doesn't flicker as the dial moves.
             let band: CGFloat = 56
-            let edgeAlpha = fine ? 0.2 + 0.4 * rim : 0.4 + 0.2 * rim
+            let edgeAlpha = fine ? 0.2 + 0.4 * min(rim, 1) : 0.4 + 0.2 * min(rim, 1)
             let edge = Gradient(stops: [.init(color: Palette.burn.opacity(0), location: 0),
                                         .init(color: Palette.burn.opacity(0.26), location: 0.35),
                                         .init(color: Palette.burn.opacity(0.34), location: 0.8),
@@ -386,7 +388,7 @@ struct PressView: View {
     /// warm white. (The render shows no separate specular streak, so none.)
     private func drawBounce(in ctx: inout GraphicsContext, jaw rect: CGRect, face: CGFloat, left: Bool, radius f: CGFloat,
                             rim: CGFloat, cardHalfHeight: CGFloat, gap: CGFloat, fine: Bool) {
-        let strength = fine ? min(1, 1.35 * rim) : 0.3 * rim
+        let strength = fine ? rim : 0.3 * min(rim, 1)
         guard strength > 0.005, f > 1 else { return }
         let bevel = min(56, f)   // the face band's width: the bevel rolling toward the card
         let (top, bottom) = (rect.minY, rect.maxY)
@@ -400,7 +402,7 @@ struct PressView: View {
             [.init(color: Palette.spill.opacity(0), location: 0), .init(color: Palette.spill.opacity(0), location: inner)] +
             (1...samples).map { i in
                 let u = CGFloat(i) / CGFloat(samples)
-                return .init(color: Palette.spill.opacity(0.95 * strength * pow(u, 1.3)), location: inner + (outer - inner) * u)
+                return .init(color: Palette.spill.opacity(min(1, 0.95 * strength * pow(u, 1.3))), location: inner + (outer - inner) * u)
             }
         }
 

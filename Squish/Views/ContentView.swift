@@ -89,15 +89,21 @@ struct ContentView: View {
         }
     }
 
-    /// Open at rest; the jaws move in a little under the pointer, grip the card
-    /// while files hover, act out a highlighted menu choice, and press as deep
-    /// as the recipe while a batch runs.
+    /// Open at rest; under the pointer the jaws close on the card and start to
+    /// bow it, grip harder while files hover, act out a highlighted menu
+    /// choice, and press as deep as the recipe (never shallower than the grip)
+    /// while a batch runs.
     private var squeeze: Double {
-        if runner.isRunning { return settings.pressDepth }
-        if isTargeted { return PressView.contact + 0.06 }
+        if runner.isRunning { return max(settings.pressDepth, Self.grip) }
+        if isTargeted { return Self.grip }
         if let preview = editor.preview { return preview.squeeze ?? 0 }
-        return hoveringHero ? 0.06 : 0
+        return hoveringHero ? Self.bite : 0
     }
+
+    /// The pointer over the art: the jaws meet the card and just start to bow it.
+    static let bite = PressView.contact + 0.05
+    /// Files held over the window.
+    static let grip = PressView.contact + 0.16
 
     private var heroSpring: Animation {
         reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.42, dampingFraction: 0.62)
