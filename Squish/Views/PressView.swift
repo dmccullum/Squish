@@ -344,11 +344,11 @@ struct PressView: View {
         ctx.drawLayer { b in
             b.drawLayer { s in
                 // At night a lit panel's spill, not a haze; by day wider, to read at all.
-                s.addFilter(.blur(radius: dark ? 52 : 70))
+                s.addFilter(.blur(radius: dark ? 64 : 76))
                 s.fill(card, with: .color(.white.opacity(dark ? 0.36 : 0.56)))
             }
             b.drawLayer { s in
-                s.addFilter(.blur(radius: 28))
+                s.addFilter(.blur(radius: 38))
                 s.stroke(card, with: .color(.white.opacity(dark ? 0.38 : 0.45)), lineWidth: 18)
             }
             // Colour the bloom (its alpha stays as drawn).
