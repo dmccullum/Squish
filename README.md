@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshot.png" width="480" alt="Squish window: a photo between two coral jaws above the sentence: Make them under 10 MB and any dimensions, then save as JPEG next to the originals.">
+  <img src="docs/screenshot.png" width="480" alt="Squish window in dark mode: a night photo between two coral jaws above the sentence: Make them under 10 MB and any dimensions, then save as JPEG next to the originals.">
 </p>
 
 ## Features
