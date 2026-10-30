@@ -32,9 +32,6 @@ struct PressView: View {
 
     var squeeze: Double
     @AnimatableIgnored var framing: Framing = .tile
-    /// Shifts both jaws toward one side, −1 (left) to 1 (right), up to 28
-    /// points of the 1024 canvas; a card they grip moves with them.
-    var lean: Double = 0
 
     @AnimatableIgnored @Environment(\.colorScheme) private var scheme
 
@@ -174,17 +171,15 @@ struct PressView: View {
         let halfWidth = lerp(Self.rest, Self.poseHalfWidth, c) - (Self.poseHalfWidth - Self.deepHalfWidth) * k
         let openFace = framing == .tile ? Self.tileOpenFace : max(edge - Self.bleedStub, Self.tileOpenFace)
         let face = s < contact ? lerp(openFace, Self.rest - Self.overlap, s / contact) : halfWidth - Self.overlap
-        let shift = 28 * CGFloat(min(max(lean, -1), 1))
-        let cardShift = shift * min(1, c * 4)
         let gates = fine ? Self.creases : Self.smallCreases
         let folds = gates.map { g in Fold(crease: g, a: min(max((k - g.start) / 0.35, 0), 1) * (0.6 + 0.4 * min(k, 1.33))) }
-        let warp = Warp(cx: 512 + cardShift, cy: 512,
+        let warp = Warp(cx: 512, cy: 512,
                         kx: halfWidth / Self.A,
                         ky: (lerp(Self.rest, Self.poseHalfHeight, c) - 8 * k) / Self.A,
                         bow: Self.poseBow * c + 0.08 * k,
                         folds: folds, ragged: fine ? min(k, 1.33) : 0)
         let pressure = min(c + 0.3 * k, 1.4)
-        let leftFace = 512 + shift - face, rightFace = 512 + shift + face
+        let leftFace = 512 - face, rightFace = 512 + face
 
         // Card
         let A = Self.A
@@ -246,7 +241,7 @@ struct PressView: View {
         }
 
         // Jaws: each runs from past the edge in to its face, its face lit by
-        // the card according to its own gap (lean opens one and closes the other).
+        // the card according to its own gap.
         let far = 512 - edge - 80
         let cardLeft = warp(-A, 0).x, cardRight = warp(A, 0).x
         let cardHalfHeight = 512 - warp(-A, -A).y
@@ -307,7 +302,25 @@ struct PressView: View {
             let t = CGFloat(i) / CGFloat(n) * 2 * .pi
             return CGPoint(x: -120 + sunWidth * cos(t), y: -120 + 70 * sin(t))
         }
-        ctx.fill(warp.path(sun), with: .color(dark ? Palette.sunDark : Palette.sun))
+        if dark {
+            // Night: a crescent where the sun is (the sun's ellipse minus one
+            // offset up and right), narrowing with it, and sparse stars, all
+            // through the same warp so they fold with the card. Stars are
+            // skipped in the small tile.
+            let inner = (0..<n).map { i -> CGPoint in
+                let t = CGFloat(i) / CGFloat(n) * 2 * .pi
+                return CGPoint(x: -120 + 0.56 * sunWidth + 0.86 * sunWidth * cos(t), y: -120 - 0.26 * 70 + 0.86 * 70 * sin(t))
+            }
+            ctx.fill(warp.path(sun).subtracting(warp.path(inner)), with: .color(Palette.moon))
+            if n > 20 {
+                for star in Self.stars {
+                    let points = Self.starPoints(x: star.u * A, y: star.v * A, r: star.r, sparkle: star.sparkle)
+                    ctx.fill(warp.path(points), with: .color(Palette.star))
+                }
+            }
+        } else {
+            ctx.fill(warp.path(sun), with: .color(Palette.sun))
+        }
 
         func hill(_ ridge: (CGFloat) -> CGFloat) -> Path {
             // The bottom is sampled too so it bows with the card and no sky shows under it.
@@ -325,6 +338,27 @@ struct PressView: View {
             let box = path.boundingRect
             ctx.fill(path, with: .linearGradient(Gradient(colors: colors),
                                                  startPoint: CGPoint(x: 0, y: box.minY), endPoint: CGPoint(x: 0, y: box.maxY)))
+        }
+    }
+
+    /// The night sky's stars, in photo space (u and v as fractions of the
+    /// half-size, r in photo units): three four-point sparkles and five dots,
+    /// as in the icon's dark appearance.
+    private static let stars: [(u: CGFloat, v: CGFloat, r: CGFloat, sparkle: Bool)] = [
+        (-0.74, -0.70, 20, true), (0.17, -0.60, 24, true), (0.70, -0.52, 18, true),
+        (-0.04, -0.72, 7, false), (0.45, -0.72, 7, false), (0.07, -0.30, 6, false), (0.46, -0.38, 5, false),
+        (-0.78, -0.28, 6, false),
+    ]
+
+    /// A four-point sparkle (concave sides: a superellipse with exponent 0.6)
+    /// or a round dot.
+    private static func starPoints(x: CGFloat, y: CGFloat, r: CGFloat, sparkle: Bool) -> [CGPoint] {
+        let n = sparkle ? 48 : 16
+        return (0..<n).map { i in
+            let a = CGFloat(i) / CGFloat(n) * 2 * .pi
+            let (c, s) = (cos(a), sin(a))
+            let rad = sparkle ? r / pow(pow(abs(c), 0.6) + pow(abs(s), 0.6), 1 / 0.6) : r
+            return CGPoint(x: x + rad * c, y: y + rad * s)
         }
     }
 
@@ -374,7 +408,8 @@ struct PressView: View {
                                                     .init(color: Palette.burn.opacity(0), location: 0.86),
                                                     .init(color: Palette.burn.opacity(0.4), location: 1)], top, bottom))
             }
-            drawBounce(in: &l, jaw: rect, face: face, left: left, radius: f, rim: rim,
+            drawBounce(in: &l, jaw: rect, face: face, left: left, radius: f,
+                       color: dark ? Palette.moonlight : Palette.spill, rim: rim,
                        cardHalfHeight: cardHalfHeight, gap: gap, fine: fine)
         }
     }
@@ -387,6 +422,7 @@ struct PressView: View {
     /// that soften as the gap grows. Added with plus-lighter in the card's
     /// warm white. (The render shows no separate specular streak, so none.)
     private func drawBounce(in ctx: inout GraphicsContext, jaw rect: CGRect, face: CGFloat, left: Bool, radius f: CGFloat,
+                            color: Color,
                             rim: CGFloat, cardHalfHeight: CGFloat, gap: CGFloat, fine: Bool) {
         let strength = fine ? rim : 0.3 * min(rim, 1)
         guard strength > 0.005, f > 1 else { return }
@@ -399,10 +435,10 @@ struct PressView: View {
         // to the silhouette (1): the cosine of the normal against the card.
         let samples = 7
         func stops(from inner: CGFloat, to outer: CGFloat) -> [Gradient.Stop] {
-            [.init(color: Palette.spill.opacity(0), location: 0), .init(color: Palette.spill.opacity(0), location: inner)] +
+            [.init(color: color.opacity(0), location: 0), .init(color: color.opacity(0), location: inner)] +
             (1...samples).map { i in
                 let u = CGFloat(i) / CGFloat(samples)
-                return .init(color: Palette.spill.opacity(min(1, 0.95 * strength * pow(u, 1.3))), location: inner + (outer - inner) * u)
+                return .init(color: color.opacity(min(1, 0.95 * strength * pow(u, 1.3))), location: inner + (outer - inner) * u)
             }
         }
 
@@ -489,18 +525,20 @@ enum Palette {
     static let jaw1Dark = Color(hex: 0xB93E0C).mix(with: coral1Dark, by: coral)
     /// Shading on the jaws' bottom edge and pressing face, and the face's lit edge.
     static let burn = Color(hex: 0x5A1A00), faceEdge = Color(hex: 0xFFE2C4)
-    /// Light from the card falling on the jaws' inner ends.
-    static let spill = Color(hex: 0xFFE0B8)
+    /// Light from the card falling on the jaws' inner ends: warm by day, a
+    /// cooler moonlit blue-white at night (same strength).
+    static let spill = Color(hex: 0xFFE0B8), moonlight = Color(hex: 0xC4D8FF)
     static let matDark = Color(hex: 0xE9ECF4)
     /// Pressure and fold shading on the picture, and pressure shading on the border.
     static let press = Color(hex: 0x0A1030), matShade = Color(hex: 0x1A2350)
     static let sky0 = Color(hex: 0x2F8BFF), sky1 = Color(hex: 0x9FD6FF)
-    static let sky0Dark = Color(hex: 0x245FC8), sky1Dark = Color(hex: 0x6FA8E8)
-    static let sun = Color(hex: 0xFFD84A), sunDark = Color(hex: 0xFFE07A)
+    /// Dark appearance: the photo is a night scene, matching the icon's.
+    static let sky0Dark = Color(hex: 0x13206A), sky1Dark = Color(hex: 0x3E3A9A)
+    static let sun = Color(hex: 0xFFD84A), moon = Color(hex: 0xF6EDC4), star = Color(hex: 0xFFF4D6)
     static let back0 = Color(hex: 0x8EDB6A), back1 = Color(hex: 0x56B451)
-    static let back0Dark = Color(hex: 0x6CB75A), back1Dark = Color(hex: 0x3F8A3E)
+    static let back0Dark = Color(hex: 0x2F7D6A), back1Dark = Color(hex: 0x1D5650)
     static let front0 = Color(hex: 0x4CC45C), front1 = Color(hex: 0x23863C)
-    static let front0Dark = Color(hex: 0x3AA14C), front1Dark = Color(hex: 0x195F2B)
+    static let front0Dark = Color(hex: 0x1F6648), front1Dark = Color(hex: 0x0E3A2C)
 }
 
 private extension Color {
