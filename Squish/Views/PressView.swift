@@ -45,8 +45,10 @@ struct PressView: View {
             let scale: CGFloat, edge: CGFloat
             switch framing {
             case .bleed:
-                // Units 116…916 fill the height; the width shows as much as fits.
-                scale = size.height / 800
+                // Units 116…916 fill the layout height; the canvas runs
+                // `bleedOverflow` beyond it above and below so the card's bloom
+                // fades out before any edge. The width shows as much as fits.
+                scale = size.height / (800 * (1 + 2 * Self.bleedOverflow))
                 edge = size.width / 2 / scale
                 ctx.translateBy(x: size.width / 2 - 512 * scale, y: size.height / 2 - 516 * scale)
             case .tile:
@@ -60,10 +62,26 @@ struct PressView: View {
         }
         .accessibilityHidden(true)
         switch framing {
-        case .bleed: canvas
+        case .bleed:
+            // Laid out at the art's own height; the canvas draws taller, outside
+            // it, and never takes clicks.
+            Color.clear
+                .overlay {
+                    GeometryReader { geo in
+                        let extra = geo.size.height * Self.bleedOverflow
+                        canvas
+                            .frame(width: geo.size.width, height: geo.size.height + 2 * extra)
+                            .offset(y: -extra)
+                            .allowsHitTesting(false)
+                    }
+                }
         case .tile: canvas.aspectRatio(1, contentMode: .fit)
         }
     }
+
+    /// How far the bleed canvas reaches past its layout frame, above and below,
+    /// as a share of the frame's height: room for the bloom to fade out.
+    private static let bleedOverflow: CGFloat = 0.22
 
     // MARK: - Geometry
 
@@ -302,7 +320,7 @@ struct PressView: View {
         /// The whole picture is backlit, like a lightbox or a display.
         case panel
     }
-    static let cardLight: CardLight = .border
+    static let cardLight: CardLight = .panel
 
     /// Light spilling outward from the card onto whatever is behind it: a wide
     /// soft bloom and a tighter one from the whole outline, at a constant
@@ -325,8 +343,9 @@ struct PressView: View {
         defer { ctx.blendMode = previous }
         ctx.drawLayer { b in
             b.drawLayer { s in
-                s.addFilter(.blur(radius: 70))
-                s.fill(card, with: .color(.white.opacity(dark ? 0.6 : 0.7)))
+                // At night a lit panel's spill, not a haze; by day wider, to read at all.
+                s.addFilter(.blur(radius: dark ? 40 : 70))
+                s.fill(card, with: .color(.white.opacity(dark ? 0.5 : 0.7)))
             }
             b.drawLayer { s in
                 s.addFilter(.blur(radius: 20))
