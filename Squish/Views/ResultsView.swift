@@ -14,7 +14,6 @@ extension FocusedValues {
 
 struct ResultsView: View {
     @Environment(JobRunner.self) private var runner
-    @Environment(SquishSettings.self) private var settings
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var released = false
@@ -61,8 +60,8 @@ struct ResultsView: View {
 
     private var header: some View {
         HStack(spacing: 18) {
-            // Opens from the batch's squeeze as the results arrive.
-            PressView(squeeze: released ? 0 : settings.pressDepth)
+            // Opens from the crumple the batch ended on as the results arrive.
+            PressView(squeeze: released ? 0 : 1)
                 .frame(width: 80, height: 80)
             VStack(alignment: .leading, spacing: 3) {
                 if savedBytes > 0 {

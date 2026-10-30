@@ -17,6 +17,9 @@ final class JobRunner {
     var emptyDrop = false
     var completed = 0
     var wasCancelled = false
+    /// Counts batches that started work, so the window can act out each one
+    /// even when it finishes before the window next draws.
+    private(set) var batches = 0
 
     @ObservationIgnored private let fm = FileManager.default
     @ObservationIgnored private var task: Task<Void, Never>?
@@ -61,6 +64,7 @@ final class JobRunner {
         emptyDrop = false
         hasFinished = false
         wasCancelled = false
+        batches += 1
         isRunning = true
         progress = 0
         completed = 0

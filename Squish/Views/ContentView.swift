@@ -14,11 +14,17 @@ struct ContentView: View {
     @State private var hoveringHero = false
     /// 1 at the moment a file finishes, easing back to 0: the jaws bite again.
     @State private var bite = 0.0
+    /// The last batch whose press has finished playing; the results wait for it.
+    @State private var shownBatch = 0
+    /// How far the press has got through the current batch, 0 at the grip to 1
+    /// fully crumpled; and the pop at the end, 0…1.
+    @State private var pressed = 0.0
+    @State private var pop = 0.0
 
     var body: some View {
         ZStack {
             background
-            if runner.hasFinished {
+            if runner.hasFinished && !playing {
                 ResultsView()
                     .transition(.opacity)
             } else {
@@ -26,7 +32,12 @@ struct ContentView: View {
                     .transition(.opacity)
             }
         }
-        .animation(.easeInOut(duration: 0.25), value: runner.hasFinished)
+        .animation(.easeInOut(duration: 0.25), value: runner.hasFinished && !playing)
+        .onAppear {
+            // A batch that finished while the window was closed goes straight to its results.
+            if !runner.isRunning { shownBatch = runner.batches }
+        }
+        .task(id: runner.batches) { await playPress() }
         .dropDestination(for: URL.self) { urls, _ in
             if runner.hasFinished { runner.reset() }
             runner.accept(urls, settings: settings)
@@ -78,7 +89,8 @@ struct ContentView: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 16)
         }
-        .animation(heroSpring, value: squeeze)
+        // While the press plays, playPress sets the squeeze every frame itself.
+        .animation(playing ? .linear(duration: 0.05) : heroSpring, value: squeeze)
         .onChange(of: runner.completed) { _, _ in
             guard runner.isRunning, !reduceMotion else { return }
             withAnimation(.easeOut(duration: 0.08)) {
@@ -90,10 +102,12 @@ struct ContentView: View {
     }
 
     /// Open at rest; under the pointer the jaws close on the card and start to
-    /// bow it, grip harder while files hover, act out a highlighted menu
-    /// choice, and press as deep as the recipe (never shallower than the grip)
-    /// while a batch runs.
+    /// bow it, grip harder while files hover, and act out a highlighted menu
+    /// choice. A batch plays the whole press, from the grip through the icon's
+    /// pose to fully crumpled and a pop (see `playPress`); under Reduce Motion
+    /// it holds at the recipe's depth instead.
     private var squeeze: Double {
+        if playing { return Self.grip + (1 - Self.grip) * pressed + 0.15 * pop }
         if runner.isRunning { return max(settings.pressDepth, Self.grip) }
         if isTargeted { return Self.grip }
         if let preview = editor.preview { return preview.squeeze ?? 0 }
@@ -105,13 +119,51 @@ struct ContentView: View {
     /// Files held over the window.
     static let grip = PressView.contact + 0.16
 
+    /// True from a batch's start until its press has finished playing.
+    private var playing: Bool { !reduceMotion && shownBatch != runner.batches }
+
+    /// The shortest time the press takes from the drop to fully crumpled, so a
+    /// single fast file still shows the whole squeeze. It only delays the
+    /// switch to the results; the files are written as soon as they're done.
+    private static let minimumPress: Double = 0.75
+
+    /// Acts out one batch: the press follows the batch's progress, but no
+    /// faster than `minimumPress` from grip to fully crumpled; then a pop and
+    /// a short hold before the results. A cancelled batch goes straight to its
+    /// results.
+    private func playPress() async {
+        let batch = runner.batches
+        guard batch != shownBatch else { return }
+        defer { shownBatch = batch }
+        guard !reduceMotion else { return }
+        pressed = 0
+        pop = 0
+        let clock = ContinuousClock()
+        let start = clock.now
+        while !Task.isCancelled, !runner.wasCancelled {
+            let elapsed = (clock.now - start) / .seconds(1)
+            let done = !runner.isRunning
+            let target = min(done ? 1 : runner.progress, elapsed / Self.minimumPress)
+            // Ease toward the target so per-file steps glide rather than jump.
+            pressed += (target - pressed) * 0.22
+            if done, pressed > 0.995 { break }
+            try? await Task.sleep(for: .milliseconds(16))
+        }
+        guard !Task.isCancelled, !runner.wasCancelled else { return }
+        pressed = 1
+        withAnimation(.easeOut(duration: 0.08)) { pop = 1 } completion: {
+            withAnimation(.spring(duration: 0.3, bounce: 0.4)) { pop = 0 }
+        }
+        try? await Task.sleep(for: .milliseconds(150))
+    }
+
     private var heroSpring: Animation {
         reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.42, dampingFraction: 0.62)
     }
 
     @ViewBuilder private var caption: some View {
         VStack(spacing: 6) {
-            if runner.isRunning {
+            if runner.isRunning || playing {
                 Text(runner.totalFiles == 1 ? "Squishing…" : "Squishing \(min(runner.completed + 1, runner.totalFiles)) of \(runner.totalFiles)…")
                     .font(.title2.weight(.semibold))
                     .contentTransition(.numericText())
@@ -140,7 +192,7 @@ struct ContentView: View {
 
     @ViewBuilder private var tray: some View {
         Group {
-            if runner.isRunning {
+            if runner.isRunning || playing {
                 HStack(spacing: 14) {
                     ProgressView(value: runner.progress)
                         .progressViewStyle(.linear)
