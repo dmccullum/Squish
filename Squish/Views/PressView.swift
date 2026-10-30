@@ -250,9 +250,9 @@ struct PressView: View {
         let far = 512 - edge - 80
         let cardLeft = warp(-A, 0).x, cardRight = warp(A, 0).x
         let cardHalfHeight = 512 - warp(-A, -A).y
-        drawJaw(in: &ctx, from: far, to: leftFace, rim: Self.rimLight(gap: cardLeft - leftFace),
+        drawJaw(in: &ctx, from: far, to: leftFace, gap: cardLeft - leftFace,
                 cardHalfHeight: cardHalfHeight, fine: fine, dark: dark)
-        drawJaw(in: &ctx, from: 1024 - far, to: rightFace, rim: Self.rimLight(gap: rightFace - cardRight),
+        drawJaw(in: &ctx, from: 1024 - far, to: rightFace, gap: rightFace - cardRight,
                 cardHalfHeight: cardHalfHeight, fine: fine, dark: dark)
     }
 
@@ -328,10 +328,10 @@ struct PressView: View {
     /// One orange slab from `outer` (past the edge) to its pressing face at
     /// `face`, rounded on the face side. Lit along the top, shaded along the
     /// bottom, with a darker band on the pressing face that ends in a light
-    /// edge. Light from the card spills onto the rounded inner end, as bright
-    /// as `rim` (0…1, from `rimLight(gap:)`), strongest at the card's height.
-    private func drawJaw(in ctx: inout GraphicsContext, from outer: CGFloat, to face: CGFloat, rim: CGFloat,
+    /// edge. Light from the card falls on the rounded inner end, by `gap`.
+    private func drawJaw(in ctx: inout GraphicsContext, from outer: CGFloat, to face: CGFloat, gap: CGFloat,
                          cardHalfHeight: CGFloat, fine: Bool, dark: Bool) {
+        let rim = Self.rimLight(gap: gap)
         let left = outer < face
         let (top, bottom) = (Self.jawTop, Self.jawBottom)
         let rect = CGRect(x: min(outer, face), y: top, width: abs(face - outer), height: bottom - top)
@@ -357,7 +357,7 @@ struct PressView: View {
             // light edge. In the small tile the edge only varies a little, so
             // the 46-point preview doesn't flicker as the dial moves.
             let band: CGFloat = 56
-            let edgeAlpha = fine ? 0.1 + 0.7 * rim : 0.4 + 0.2 * rim
+            let edgeAlpha = fine ? 0.2 + 0.4 * rim : 0.4 + 0.2 * rim
             let edge = Gradient(stops: [.init(color: Palette.burn.opacity(0), location: 0),
                                         .init(color: Palette.burn.opacity(0.26), location: 0.35),
                                         .init(color: Palette.burn.opacity(0.34), location: 0.8),
@@ -365,32 +365,77 @@ struct PressView: View {
             l.fill(Path(CGRect(x: left ? face - band : face, y: top, width: band, height: bottom - top)),
                    with: .linearGradient(edge, startPoint: CGPoint(x: left ? face - band : face + band, y: 0),
                                          endPoint: CGPoint(x: face, y: 0)))
-            // Light spilling from the white card onto the rounded inner end:
-            // added (plus-lighter), so it lifts the coral toward peach and
-            // white like light, an ellipse centred on the face at the card's
-            // middle that fades about 190 units into the jaw and toward its
-            // top and bottom. Restrained in the small tile.
-            let spill = (fine ? min(1, 1.35 * rim) : 0.25 * rim)
-            if spill > 0.005 {
-                l.drawLayer { g in
-                    g.blendMode = .plusLighter
-                    let reach: CGFloat = 190, height = max(cardHalfHeight, 120) * 1.15
-                    g.translateBy(x: face, y: 512)
-                    g.scaleBy(x: reach / height, y: 1)
-                    g.fill(Path(CGRect(x: -2 * height, y: -height, width: 4 * height, height: 2 * height)),
-                           with: .radialGradient(Gradient(stops: [.init(color: Palette.spill.opacity(spill), location: 0),
-                                                                  .init(color: Palette.spill.opacity(spill * 0.75), location: 0.3),
-                                                                  .init(color: Palette.spill.opacity(spill * 0.35), location: 0.65),
-                                                                  .init(color: Palette.spill.opacity(0), location: 1)]),
-                                                 center: .zero, startRadius: 0, endRadius: height))
+            if fine {
+                // Soft bevel: lit over the top 9 %, shaded over the bottom 14 %.
+                l.fill(Path(rect), with: vertical([.init(color: .white.opacity(0.5), location: 0),
+                                                    .init(color: .white.opacity(0), location: 0.09),
+                                                    .init(color: Palette.burn.opacity(0), location: 0.86),
+                                                    .init(color: Palette.burn.opacity(0.4), location: 1)], top, bottom))
+            }
+            drawBounce(in: &l, jaw: rect, face: face, left: left, radius: f, rim: rim,
+                       cardHalfHeight: cardHalfHeight, gap: gap, fine: fine)
+        }
+    }
+
+    /// Light from the white card falling on the jaw's rounded inner end, as a
+    /// Cycles render of the jaw beside a lit card shows it: a band on the bevel
+    /// that hugs the face and its corner radii, brightest at the silhouette
+    /// (where the surface turns to face the card) and falling off with the
+    /// cosine across the bevel's width; only as tall as the card, with ends
+    /// that soften as the gap grows. Added with plus-lighter in the card's
+    /// warm white. (The render shows no separate specular streak, so none.)
+    private func drawBounce(in ctx: inout GraphicsContext, jaw rect: CGRect, face: CGFloat, left: Bool, radius f: CGFloat,
+                            rim: CGFloat, cardHalfHeight: CGFloat, gap: CGFloat, fine: Bool) {
+        let strength = fine ? min(1, 1.35 * rim) : 0.3 * rim
+        guard strength > 0.005, f > 1 else { return }
+        let bevel = min(56, f)   // the face band's width: the bevel rolling toward the card
+        let (top, bottom) = (rect.minY, rect.maxY)
+        let side: CGFloat = left ? 1 : -1                 // toward the card
+        let cx = face - side * f                          // the corner arcs' centre line
+
+        // Brightness across the bevel, from where it meets the flat front (0)
+        // to the silhouette (1): the cosine of the normal against the card.
+        let samples = 7
+        func stops(from inner: CGFloat, to outer: CGFloat) -> [Gradient.Stop] {
+            [.init(color: Palette.spill.opacity(0), location: 0), .init(color: Palette.spill.opacity(0), location: inner)] +
+            (1...samples).map { i in
+                let u = CGFloat(i) / CGFloat(samples)
+                return .init(color: Palette.spill.opacity(0.95 * strength * pow(u, 1.3)), location: inner + (outer - inner) * u)
+            }
+        }
+
+        // The layer is composited with the context's blend mode, so plus-lighter
+        // goes on the context that receives it.
+        let previous = ctx.blendMode
+        ctx.blendMode = .plusLighter
+        defer { ctx.blendMode = previous }
+        ctx.drawLayer { band in
+            // The straight run of the face: a horizontal gradient across the bevel.
+            let run = CGRect(x: left ? face - bevel : face, y: top + f, width: bevel, height: bottom - top - 2 * f)
+            band.fill(Path(run), with: .linearGradient(Gradient(stops: stops(from: 0, to: 1)),
+                                                       startPoint: CGPoint(x: face - side * bevel, y: 0),
+                                                       endPoint: CGPoint(x: face, y: 0)))
+            // The corners: the same profile, radial about each arc's centre.
+            for (cy, y0) in [(top + f, top), (bottom - f, bottom - f)] {
+                let quadrant = CGRect(x: left ? cx : face, y: y0, width: f, height: f)
+                band.drawLayer { q in
+                    q.clip(to: Path(quadrant))
+                    q.fill(Path(quadrant), with: .radialGradient(Gradient(stops: stops(from: (f - bevel) / f, to: 1)),
+                                                                 center: CGPoint(x: cx, y: cy), startRadius: 0, endRadius: f))
                 }
             }
-            guard fine else { return }
-            // Soft bevel: lit over the top 9 %, shaded over the bottom 14 %.
-            l.fill(Path(rect), with: vertical([.init(color: .white.opacity(0.5), location: 0),
-                                                .init(color: .white.opacity(0), location: 0.09),
-                                                .init(color: Palette.burn.opacity(0), location: 0.86),
-                                                .init(color: Palette.burn.opacity(0.4), location: 1)], top, bottom))
+            // Only as tall as the card; its ends soften as it backs away.
+            band.blendMode = .destinationIn
+            let soft = 24 + 0.6 * max(gap, 0)
+            let (y0, y1) = (512 - cardHalfHeight, 512 + cardHalfHeight)
+            let span = rect.insetBy(dx: -50, dy: -50)
+            func at(_ y: CGFloat) -> CGFloat { min(max((y - span.minY) / span.height, 0), 1) }
+            let mask = Gradient(stops: [.init(color: .white.opacity(0), location: at(y0 - soft)),
+                                        .init(color: .white, location: at(y0 + soft * 0.4)),
+                                        .init(color: .white, location: at(y1 - soft * 0.4)),
+                                        .init(color: .white.opacity(0), location: at(y1 + soft))])
+            band.fill(Path(span), with: .linearGradient(mask, startPoint: CGPoint(x: 0, y: span.minY),
+                                                        endPoint: CGPoint(x: 0, y: span.maxY)))
         }
     }
 
@@ -442,7 +487,7 @@ enum Palette {
     static let jaw1Dark = Color(hex: 0xB93E0C).mix(with: coral1Dark, by: coral)
     /// Shading on the jaws' bottom edge and pressing face, and the face's lit edge.
     static let burn = Color(hex: 0x5A1A00), faceEdge = Color(hex: 0xFFE2C4)
-    /// Light from the card spilling onto the jaws' inner ends.
+    /// Light from the card falling on the jaws' inner ends.
     static let spill = Color(hex: 0xFFE0B8)
     static let matDark = Color(hex: 0xE9ECF4)
     /// Pressure and fold shading on the picture, and pressure shading on the border.
