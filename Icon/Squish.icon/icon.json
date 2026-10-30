@@ -1,41 +1,11 @@
 {
  "fill-specializations": [
   {
-   "value": {
-    "linear-gradient": [
-     "srgb:0.34118,0.14902,0.43529,1.00000",
-     "srgb:0.14510,0.03529,0.18431,1.00000"
-    ],
-    "orientation": {
-     "start": {
-      "x": 0.5,
-      "y": 0.0
-     },
-     "stop": {
-      "x": 0.5,
-      "y": 1.0
-     }
-    }
-   }
+   "value": "system-light"
   },
   {
    "appearance": "dark",
-   "value": {
-    "linear-gradient": [
-     "srgb:0.18039,0.07059,0.25098,1.00000",
-     "srgb:0.04706,0.01176,0.07059,1.00000"
-    ],
-    "orientation": {
-     "start": {
-      "x": 0.5,
-      "y": 0.0
-     },
-     "stop": {
-      "x": 0.5,
-      "y": 1.0
-     }
-    }
-   }
+   "value": "system-dark"
   },
   {
    "appearance": "tinted",
@@ -161,6 +131,21 @@
   {
    "name": "Mat",
    "layers": [
+    {
+     "name": "hairline",
+     "glass": false,
+     "image-name": "hairline.svg",
+     "hidden-specializations": [
+      {
+       "appearance": "dark",
+       "value": true
+      },
+      {
+       "appearance": "tinted",
+       "value": true
+      }
+     ]
+    },
     {
      "name": "folds-mat",
      "glass": false,
@@ -463,6 +448,59 @@
    "shadow": {
     "kind": "neutral",
     "opacity": 0.5
+   },
+   "translucency": {
+    "enabled": false,
+    "value": 0.0
+   }
+  },
+  {
+   "name": "Glow",
+   "layers": [
+    {
+     "name": "bloom",
+     "glass": false,
+     "image-name": "bloom.png",
+     "hidden-specializations": [
+      {
+       "value": true
+      },
+      {
+       "appearance": "dark",
+       "value": false
+      },
+      {
+       "appearance": "tinted",
+       "value": true
+      }
+     ],
+     "blend-mode": "plus-lighter"
+    },
+    {
+     "name": "glow",
+     "glass": false,
+     "image-name-specializations": [
+      {
+       "value": "glow-light.png"
+      },
+      {
+       "appearance": "dark",
+       "value": "glow-dark.png"
+      }
+     ],
+     "hidden-specializations": [
+      {
+       "appearance": "tinted",
+       "value": true
+      }
+     ]
+    }
+   ],
+   "lighting": "combined",
+   "specular": false,
+   "shadow": {
+    "kind": "none",
+    "opacity": 0.0
    },
    "translucency": {
     "enabled": false,
