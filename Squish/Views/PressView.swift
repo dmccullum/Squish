@@ -189,6 +189,20 @@ struct PressView: View {
         let window = warp.path(Self.roundedRect(windowHalf.x, windowHalf.y, r: 22, steps))
         let cardBox = card.boundingRect
 
+        // How brightly the card lights each jaw: from each jaw's gap as a share
+        // of the rest gap, lifted up to 15 % more while pressing so a running
+        // batch reads as more intense than a grip.
+        let cardLeft = warp(-A, 0).x, cardRight = warp(A, 0).x
+        let restGap = openFace - Self.rest
+        let lift = 1 + 0.15 * min(max((s - contact) / (1 - contact), 0), 1)
+        let leftLight = Self.rimLight(gap: cardLeft - leftFace, restGap: restGap) * lift
+        let rightLight = Self.rimLight(gap: rightFace - cardRight, restGap: restGap) * lift
+
+        // The card glows with the same light, so it reads as the source.
+        if fine {
+            drawCardGlow(in: &ctx, card: card, box: cardBox, left: leftLight, right: rightLight, dark: dark)
+        }
+
         // The shadow filter applies to each drawing operation, so the card is
         // drawn into an inner layer that casts one shadow.
         ctx.drawLayer { outer in
@@ -243,16 +257,44 @@ struct PressView: View {
         // Jaws: each runs from past the edge in to its face, its face lit by
         // the card according to its own gap.
         let far = 512 - edge - 80
-        let cardLeft = warp(-A, 0).x, cardRight = warp(A, 0).x
         let cardHalfHeight = 512 - warp(-A, -A).y
-        // Pressing past contact lifts the light up to 15 % more, so a running
-        // batch reads as more intense than a grip.
-        let restGap = openFace - Self.rest
-        let lift = 1 + 0.15 * min(max((s - contact) / (1 - contact), 0), 1)
-        drawJaw(in: &ctx, from: far, to: leftFace, light: Self.rimLight(gap: cardLeft - leftFace, restGap: restGap) * lift,
+        drawJaw(in: &ctx, from: far, to: leftFace, light: leftLight,
                 cardHalfHeight: cardHalfHeight, gap: cardLeft - leftFace, fine: fine, dark: dark)
-        drawJaw(in: &ctx, from: 1024 - far, to: rightFace, light: Self.rimLight(gap: rightFace - cardRight, restGap: restGap) * lift,
+        drawJaw(in: &ctx, from: 1024 - far, to: rightFace, light: rightLight,
                 cardHalfHeight: cardHalfHeight, gap: rightFace - cardRight, fine: fine, dark: dark)
+    }
+
+    /// A soft halo just outside the card's outline, following its bow and
+    /// folds, in the same light the jaws catch: moonlit at night, a faint warm
+    /// lift by day. Added with plus-lighter so it brightens rather than greys.
+    /// Strongest at the sides, where each jaw's own light sets it, and softer
+    /// across the top and bottom. Drawn behind the card, so only the outside
+    /// shows.
+    private func drawCardGlow(in ctx: inout GraphicsContext, card: Path, box: CGRect, left: CGFloat, right: CGFloat, dark: Bool) {
+        let peak: CGFloat = dark ? 0.5 : 0.42
+        let (a, b) = (peak * left, peak * right)
+        guard max(a, b) > 0.005 else { return }
+        let color = dark ? Palette.moonlight : Palette.spill
+        let previous = ctx.blendMode
+        ctx.blendMode = .plusLighter
+        defer { ctx.blendMode = previous }
+        ctx.drawLayer { halo in
+            halo.drawLayer { ring in
+                ring.addFilter(.blur(radius: 24))
+                ring.stroke(card, with: .color(color), lineWidth: 30)
+            }
+            // Side to side: each side's strength, dipping to 35 % of the mean across the middle.
+            halo.blendMode = .destinationIn
+            let mid = 0.35 * (a + b) / 2
+            let span = box.insetBy(dx: -90, dy: -90)
+            halo.fill(Path(span), with: .linearGradient(
+                Gradient(stops: [.init(color: .white.opacity(a), location: 0),
+                                 .init(color: .white.opacity(a), location: 0.22),
+                                 .init(color: .white.opacity(mid), location: 0.5),
+                                 .init(color: .white.opacity(b), location: 0.78),
+                                 .init(color: .white.opacity(b), location: 1)]),
+                startPoint: CGPoint(x: span.minX, y: 0), endPoint: CGPoint(x: span.maxX, y: 0)))
+        }
     }
 
     /// How brightly the white card lights a jaw's inner end, from its gap as a
