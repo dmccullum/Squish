@@ -104,7 +104,7 @@ nonisolated final class ClosureMenuItem: NSMenuItem {
 // MARK: - The dial
 
 /// The live control at the top of the File Size and Dimensions menus: a mini
-/// clamp, the value in big type, and a log-scale slider with detents at the
+/// press, the value in big type, and a log-scale slider with detents at the
 /// presets and an accent-colored "no limit" dot at its far end. Dragging applies immediately, like the volume slider in Control
 /// Center, and the menu stays open.
 final class RecipeDialView: NSView {
@@ -112,7 +112,7 @@ final class RecipeDialView: NSView {
     private var settings: SquishSettings { context.settings }
     private var isSize: Bool { context.field == .size }
 
-    private let clamp = NSHostingView(rootView: ClampView(squeeze: 0))
+    private let press = NSHostingView(rootView: PressView(squeeze: 0))
     private let big = NSTextField(labelWithString: "")
     private let why = NSTextField(labelWithString: "")
     private let slider = NSSlider(value: 0, minValue: 0, maxValue: 1, target: nil, action: nil)
@@ -165,8 +165,8 @@ final class RecipeDialView: NSView {
     private func build() {
         let x = Self.inset, w = Self.width - Self.inset * 2
 
-        clamp.frame = NSRect(x: x, y: 10, width: 46, height: 50)
-        addSubview(clamp)
+        press.frame = NSRect(x: x, y: 10, width: 46, height: 50)
+        addSubview(press)
 
         let rounded = NSFont.systemFont(ofSize: 22, weight: .bold)
         big.font = rounded.fontDescriptor.withDesign(.rounded).flatMap { NSFont(descriptor: $0, size: 22) } ?? rounded
@@ -318,7 +318,7 @@ final class RecipeDialView: NSView {
         let p = currentPreview
         big.stringValue = p.title
         why.stringValue = p.detail
-        clamp.rootView = ClampView(squeeze: p.squeeze ?? 0, photoScale: p.photoScale ?? 1)
+        press.rootView = PressView(squeeze: p.squeeze ?? 0, photoScale: p.photoScale ?? 1)
         slider.setAccessibilityValueDescription(p.title)
     }
 

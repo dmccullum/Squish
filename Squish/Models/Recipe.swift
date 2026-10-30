@@ -16,7 +16,7 @@ enum RecipeField: String, CaseIterable, Identifiable {
     }
 }
 
-/// What the window's clamp and caption show while a choice is being considered
+/// What the window's press and caption show while a choice is being considered
 /// (a highlighted menu item, or the dial mid-drag).
 struct RecipePreview: Equatable {
     var squeeze: Double?
@@ -69,7 +69,7 @@ struct RecipeActions {
 /// and tuck presets into a submenu; the menu bar lists everything flat.
 enum RecipeMenuStyle { case popUp, menuBar }
 
-/// How hard the clamp squeezes for a byte target, and how big the photo is
+/// How hard the press squeezes for a byte target, and how big the photo is
 /// for a pixel target. Shared by the dial and the hover previews.
 enum RecipeScale {
     static func squeeze(bytes: Int) -> Double {

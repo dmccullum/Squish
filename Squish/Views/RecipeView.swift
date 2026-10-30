@@ -8,7 +8,7 @@ import SwiftUI
 final class RecipeEditor {
     var editing: RecipeField?
     /// Set while a recipe menu is open and something in it is highlighted or
-    /// being dragged; the window's clamp and caption act it out.
+    /// being dragged; the window's press and caption act it out.
     var preview: RecipePreview?
 }
 

@@ -60,8 +60,8 @@ struct ResultsView: View {
 
     private var header: some View {
         HStack(spacing: 18) {
-            ClampView(squeeze: released ? 0 : 1)
-                .frame(width: 78, height: 84)
+            PressView(squeeze: released ? 0 : 1)
+                .frame(width: 100, height: 80)
             VStack(alignment: .leading, spacing: 3) {
                 if savedBytes > 0 {
                     PercentText(value: shownPercent)
@@ -161,7 +161,7 @@ struct ResultsView: View {
 
     private var emptyState: some View {
         VStack(spacing: 12) {
-            ClampView(squeeze: 0)
+            PressView(squeeze: 0)
                 .frame(height: 130)
             Text("Nothing to squish")
                 .font(.title2.weight(.semibold))

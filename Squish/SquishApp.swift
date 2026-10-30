@@ -30,10 +30,10 @@ struct SquishApp: App {
                 .environment(app.settings)
         }
 
-        // The clamp is the icon art, so it stands in for the icon.
+        // The press is the icon art, so it stands in for the icon.
         AboutScene(links: AboutLinks(sourceCode: URL(string: "https://github.com/dmccullum/Squish")),
                    showsIcon: false) {
-            AboutClamp()
+            AboutPress()
         }
     }
 }

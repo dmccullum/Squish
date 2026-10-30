@@ -12,7 +12,8 @@ struct ContentView: View {
 
     @State private var isTargeted = false
     @State private var hoveringHero = false
-    @State private var twist = 0.0
+    /// 1 at the moment a file finishes, easing back to 0: the jaws bite again.
+    @State private var bite = 0.0
 
     var body: some View {
         ZStack {
@@ -38,7 +39,7 @@ struct ContentView: View {
     private var background: some View {
         ZStack {
             Color(nsColor: .windowBackgroundColor)
-            // A warm pool of light behind the clamp; brightens when files hover.
+            // A warm pool of light behind the press; brightens when files hover.
             // Reduce Transparency leaves the plain window background.
             if !reduceTransparency {
                 RadialGradient(colors: [Color.accentColor.opacity(isTargeted ? 0.30 : 0.13), .clear],
@@ -56,7 +57,7 @@ struct ContentView: View {
     private var main: some View {
         VStack(spacing: 0) {
             Button(action: chooseFiles) {
-                ClampView(squeeze: squeeze, twist: twist, photoScale: photoScale)
+                PressView(squeeze: squeeze + 0.12 * bite, photoScale: photoScale)
                     .frame(height: 170)
                     .padding(.top, 34)
             }
@@ -79,7 +80,11 @@ struct ContentView: View {
         .animation(heroSpring, value: photoScale)
         .onChange(of: runner.completed) { _, _ in
             guard runner.isRunning, !reduceMotion else { return }
-            withAnimation(.easeInOut(duration: 0.35)) { twist += .pi }
+            withAnimation(.easeOut(duration: 0.08)) {
+                bite = 1
+            } completion: {
+                withAnimation(.spring(duration: 0.35, bounce: 0.3)) { bite = 0 }
+            }
         }
     }
 
