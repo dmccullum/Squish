@@ -3,8 +3,8 @@
   {
    "value": {
     "linear-gradient": [
-     "srgb:0.16863,0.27059,0.58824,1.00000",
-     "srgb:0.05490,0.10196,0.29020,1.00000"
+     "srgb:0.34118,0.14902,0.43529,1.00000",
+     "srgb:0.14510,0.03529,0.18431,1.00000"
     ],
     "orientation": {
      "start": {
@@ -22,8 +22,8 @@
    "appearance": "dark",
    "value": {
     "linear-gradient": [
-     "srgb:0.08627,0.13333,0.30588,1.00000",
-     "srgb:0.01569,0.03137,0.10980,1.00000"
+     "srgb:0.18039,0.07059,0.25098,1.00000",
+     "srgb:0.04706,0.01176,0.07059,1.00000"
     ],
     "orientation": {
      "start": {
@@ -62,6 +62,26 @@
    "name": "Jaws",
    "layers": [
     {
+     "name": "spill",
+     "glass": false,
+     "image-name-specializations": [
+      {
+       "value": "spill-light.png"
+      },
+      {
+       "appearance": "dark",
+       "value": "spill-dark.png"
+      }
+     ],
+     "hidden-specializations": [
+      {
+       "appearance": "tinted",
+       "value": true
+      }
+     ],
+     "blend-mode": "plus-lighter"
+    },
+    {
      "name": "jaw-bevel",
      "glass": false,
      "image-name": "jaw-bevel.svg"
@@ -84,8 +104,8 @@
       {
        "value": {
         "linear-gradient": [
-         "srgb:1.00000,0.64314,0.30588,1.00000",
-         "srgb:0.88627,0.31373,0.10196,1.00000"
+         "display-p3:0.97245,0.63357,0.41295,1.00000",
+         "display-p3:0.84744,0.34817,0.20985,1.00000"
         ],
         "orientation": {
          "start": {
@@ -103,8 +123,8 @@
        "appearance": "dark",
        "value": {
         "linear-gradient": [
-         "srgb:0.96078,0.54118,0.22745,1.00000",
-         "srgb:0.72549,0.24314,0.04706,1.00000"
+         "display-p3:0.93855,0.54863,0.34635,1.00000",
+         "display-p3:0.69304,0.26203,0.13863,1.00000"
         ],
         "orientation": {
          "start": {
@@ -141,6 +161,11 @@
   {
    "name": "Mat",
    "layers": [
+    {
+     "name": "folds-mat",
+     "glass": false,
+     "image-name": "folds-mat.svg"
+    },
     {
      "name": "mat-shade",
      "glass": false,
@@ -193,6 +218,11 @@
   {
    "name": "Photo",
    "layers": [
+    {
+     "name": "folds-photo",
+     "glass": false,
+     "image-name": "folds-photo.svg"
+    },
     {
      "name": "shade",
      "glass": false,
