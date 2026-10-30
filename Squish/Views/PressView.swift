@@ -383,12 +383,22 @@ struct PressView: View {
     private func lerp(_ a: CGFloat, _ b: CGFloat, _ t: CGFloat) -> CGFloat { a + (b - a) * t }
 }
 
-/// The icon's colors (Squish.icon): light, and the icon's dark appearance.
+/// The icon's colors (Squish.icon), light and dark, with the jaws leaned toward coral.
 enum Palette {
     static let tile0 = Color(hex: 0x2B4596), tile1 = Color(hex: 0x0E1A4A)
     static let tile0Dark = Color(hex: 0x16224E), tile1Dark = Color(hex: 0x04081C)
-    static let jaw0 = Color(hex: 0xFFA44E), jaw1 = Color(hex: 0xE2501A)
-    static let jaw0Dark = Color(hex: 0xF58A3A), jaw1Dark = Color(hex: 0xB93E0C)
+    /// How far the jaws lean from the icon's orange toward coral, the warm
+    /// side of the app's accent (AccentColor: P3 0.82 0.29 0.10 light,
+    /// 1.0 0.56 0.36 dark): 0 is the icon's orange, 1 is full coral.
+    static let coral = 0.6
+    private static let coral0 = Color(.displayP3, red: 1.0, green: 0.6, blue: 0.46)
+    private static let coral1 = Color(.displayP3, red: 0.88, green: 0.34, blue: 0.24)
+    private static let coral0Dark = Color(.displayP3, red: 0.98, green: 0.53, blue: 0.4)
+    private static let coral1Dark = Color(.displayP3, red: 0.72, green: 0.24, blue: 0.15)
+    static let jaw0 = Color(hex: 0xFFA44E).mix(with: coral0, by: coral)
+    static let jaw1 = Color(hex: 0xE2501A).mix(with: coral1, by: coral)
+    static let jaw0Dark = Color(hex: 0xF58A3A).mix(with: coral0Dark, by: coral)
+    static let jaw1Dark = Color(hex: 0xB93E0C).mix(with: coral1Dark, by: coral)
     /// Shading on the jaws' bottom edge and pressing face, and the face's lit edge.
     static let burn = Color(hex: 0x5A1A00), faceEdge = Color(hex: 0xFFE2C4)
     static let matDark = Color(hex: 0xE9ECF4)
