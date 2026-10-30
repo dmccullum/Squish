@@ -198,21 +198,32 @@ struct PressView: View {
         let leftLight = Self.rimLight(gap: cardLeft - leftFace, restGap: restGap) * lift
         let rightLight = Self.rimLight(gap: rightFace - cardRight, restGap: restGap) * lift
 
-        // The card glows with the same light, so it reads as the source.
+        // The card is a light source: a constant bloom spreads outward from its
+        // whole outline, behind it, following its bow and folds.
         if fine {
-            drawCardGlow(in: &ctx, card: card, box: cardBox, left: leftLight, right: rightLight, dark: dark)
+            drawBloom(in: &ctx, card: card, box: cardBox, dark: dark)
         }
 
         // The shadow filter applies to each drawing operation, so the card is
         // drawn into an inner layer that casts one shadow.
         ctx.drawLayer { outer in
-            if fine { outer.addFilter(.shadow(color: .black.opacity(dark ? 0.5 : 0.2), radius: 16, x: 0, y: 12)) }
+            // A lit panel casts only a light shadow.
+            if fine { outer.addFilter(.shadow(color: .black.opacity(dark ? 0.3 : 0.18), radius: 16, x: 0, y: 12)) }
             outer.drawLayer { l in
                 l.fill(card, with: .linearGradient(Gradient(colors: dark ? [Palette.sky0Dark, Palette.sky1Dark] : [Palette.sky0, Palette.sky1]),
                                                    startPoint: CGPoint(x: 0, y: cardBox.minY), endPoint: CGPoint(x: 0, y: cardBox.maxY)))
                 l.drawLayer { p in
                     p.clip(to: window)
-                    drawPicture(in: &p, warp: warp, squash: c, crumple: k, steps: fine ? 48 : 14, dark: dark)
+                    drawPicture(in: &p, warp: warp, squash: c, crumple: k, steps: fine ? 48 : 14, dark: dark,
+                                backlit: Self.cardLight == .panel && fine)
+                    if Self.cardLight == .panel, fine {
+                        // Backlit: light from behind the picture, brightest in the middle.
+                        var lit = p
+                        lit.blendMode = .plusLighter
+                        lit.fill(Path(cardBox), with: .radialGradient(
+                            Gradient(colors: [(dark ? Palette.moonlight : .white).opacity(dark ? 0.2 : 0.14), .clear]),
+                            center: CGPoint(x: 512, y: 470), startRadius: 0, endRadius: max(cardBox.width, cardBox.height) * 0.7))
+                    }
                     if fine, pressure > 0 {
                         // Darker where the jaws press, a faint lift in the middle.
                         p.fill(Path(cardBox), with: .linearGradient(
@@ -227,7 +238,27 @@ struct PressView: View {
                 // The white print border.
                 var mat = card
                 mat.addPath(window)
-                l.fill(mat, with: .color((dark ? Palette.matDark : .white).opacity(0.95)), style: FillStyle(eoFill: true))
+                if Self.cardLight == .border {
+                    // Lit from within: brighter than paper, with a luminous outer
+                    // edge and a faint falloff toward the photo.
+                    l.fill(mat, with: .color(dark ? Palette.emitDark : .white), style: FillStyle(eoFill: true))
+                    if fine {
+                        l.drawLayer { m in
+                            m.clip(to: mat, style: FillStyle(eoFill: true))
+                            m.drawLayer { e in
+                                e.addFilter(.blur(radius: 8))
+                                e.stroke(window, with: .color(Palette.matShade.opacity(dark ? 0.22 : 0.12)), lineWidth: 10)
+                            }
+                            m.blendMode = .plusLighter
+                            m.drawLayer { e in
+                                e.addFilter(.blur(radius: 5))
+                                e.stroke(card, with: .color(.white.opacity(0.7)), lineWidth: 10)
+                            }
+                        }
+                    }
+                } else {
+                    l.fill(mat, with: .color((dark ? Palette.matDark : .white).opacity(0.95)), style: FillStyle(eoFill: true))
+                }
                 if fine, pressure > 0 {
                     l.drawLayer { m in
                         m.clip(to: mat, style: FillStyle(eoFill: true))
@@ -264,36 +295,48 @@ struct PressView: View {
                 cardHalfHeight: cardHalfHeight, gap: rightFace - cardRight, fine: fine, dark: dark)
     }
 
-    /// A soft halo just outside the card's outline, following its bow and
-    /// folds, in the same light the jaws catch: moonlit at night, a faint warm
-    /// lift by day. Added with plus-lighter so it brightens rather than greys.
-    /// Strongest at the sides, where each jaw's own light sets it, and softer
-    /// across the top and bottom. Drawn behind the card, so only the outside
-    /// shows.
-    private func drawCardGlow(in ctx: inout GraphicsContext, card: Path, box: CGRect, left: CGFloat, right: CGFloat, dark: Bool) {
-        let peak: CGFloat = dark ? 0.5 : 0.42
-        let (a, b) = (peak * left, peak * right)
-        guard max(a, b) > 0.005 else { return }
-        let color = dark ? Palette.moonlight : Palette.spill
+    /// What gives off the card's light (see `drawBloom`).
+    enum CardLight {
+        /// The white mat is lit from within, like a backlit frame.
+        case border
+        /// The whole picture is backlit, like a lightbox or a display.
+        case panel
+    }
+    static let cardLight: CardLight = .border
+
+    /// Light spilling outward from the card onto whatever is behind it: a wide
+    /// soft bloom and a tighter one from the whole outline, at a constant
+    /// strength (the card is the light source; the jaws catch more of it as
+    /// they close in, which `rimLight` covers). Moonlit at night and warm by
+    /// day; the backlit picture tints its bloom by the scene, sky above and
+    /// hills below. Added with plus-lighter and drawn behind the card and the
+    /// jaws, so it never stacks on the jaws' own rim light.
+    private func drawBloom(in ctx: inout GraphicsContext, card: Path, box: CGRect, dark: Bool) {
+        let base = dark ? Palette.moonlight : Palette.spill
+        let (top, bottom): (Color, Color)
+        switch Self.cardLight {
+        case .border: (top, bottom) = (base, base)
+        case .panel:
+            (top, bottom) = dark ? (base.mix(with: Palette.sky1Dark, by: 0.35), base.mix(with: Palette.back0Dark, by: 0.35))
+                                 : (base.mix(with: Palette.sky1, by: 0.35), base.mix(with: Palette.back0, by: 0.3))
+        }
         let previous = ctx.blendMode
         ctx.blendMode = .plusLighter
         defer { ctx.blendMode = previous }
-        ctx.drawLayer { halo in
-            halo.drawLayer { ring in
-                ring.addFilter(.blur(radius: 24))
-                ring.stroke(card, with: .color(color), lineWidth: 30)
+        ctx.drawLayer { b in
+            b.drawLayer { s in
+                s.addFilter(.blur(radius: 70))
+                s.fill(card, with: .color(.white.opacity(dark ? 0.6 : 0.7)))
             }
-            // Side to side: each side's strength, dipping to 35 % of the mean across the middle.
-            halo.blendMode = .destinationIn
-            let mid = 0.35 * (a + b) / 2
-            let span = box.insetBy(dx: -90, dy: -90)
-            halo.fill(Path(span), with: .linearGradient(
-                Gradient(stops: [.init(color: .white.opacity(a), location: 0),
-                                 .init(color: .white.opacity(a), location: 0.22),
-                                 .init(color: .white.opacity(mid), location: 0.5),
-                                 .init(color: .white.opacity(b), location: 0.78),
-                                 .init(color: .white.opacity(b), location: 1)]),
-                startPoint: CGPoint(x: span.minX, y: 0), endPoint: CGPoint(x: span.maxX, y: 0)))
+            b.drawLayer { s in
+                s.addFilter(.blur(radius: 20))
+                s.stroke(card, with: .color(.white.opacity(dark ? 0.55 : 0.6)), lineWidth: 18)
+            }
+            // Colour the bloom (its alpha stays as drawn).
+            b.blendMode = .sourceIn
+            let span = box.insetBy(dx: -260, dy: -260)
+            b.fill(Path(span), with: .linearGradient(Gradient(colors: [top, bottom]),
+                                                     startPoint: CGPoint(x: 0, y: box.minY), endPoint: CGPoint(x: 0, y: box.maxY)))
         }
     }
 
@@ -336,7 +379,7 @@ struct PressView: View {
 
     /// Sky is the card's own fill; this adds the sun and the two hills.
     private func drawPicture(in ctx: inout GraphicsContext, warp: Warp, squash: CGFloat, crumple: CGFloat,
-                             steps n: Int, dark: Bool) {
+                             steps n: Int, dark: Bool, backlit: Bool = false) {
         let A = Self.A
         // The sun narrows to 0.62 of its width at the icon's pose, a little more as the card crumples.
         let sunWidth = 70 * max(0.45, lerp(1, 0.62, squash) - 0.1 * crumple)
@@ -353,15 +396,27 @@ struct PressView: View {
                 let t = CGFloat(i) / CGFloat(n) * 2 * .pi
                 return CGPoint(x: -120 + 0.56 * sunWidth + 0.86 * sunWidth * cos(t), y: -120 - 0.26 * 70 + 0.86 * 70 * sin(t))
             }
-            ctx.fill(warp.path(sun).subtracting(warp.path(inner)), with: .color(Palette.moon))
+            var lights = warp.path(sun).subtracting(warp.path(inner))
+            ctx.fill(lights, with: .color(Palette.moon))
             if n > 20 {
                 for star in Self.stars {
-                    let points = Self.starPoints(x: star.u * A, y: star.v * A, r: star.r, sparkle: star.sparkle)
-                    ctx.fill(warp.path(points), with: .color(Palette.star))
+                    let points = warp.path(Self.starPoints(x: star.u * A, y: star.v * A, r: star.r, sparkle: star.sparkle))
+                    ctx.fill(points, with: .color(Palette.star))
+                    lights.addPath(points)
                 }
             }
+            if backlit { bloom(lights, color: Palette.moon, in: &ctx) }
         } else {
             ctx.fill(warp.path(sun), with: .color(Palette.sun))
+            if backlit { bloom(warp.path(sun), color: Palette.sun, in: &ctx) }
+        }
+
+        /// The backlit picture's highlights bloom slightly.
+        func bloom(_ path: Path, color: Color, in ctx: inout GraphicsContext) {
+            var g = ctx
+            g.blendMode = .plusLighter
+            g.addFilter(.blur(radius: 14))
+            g.fill(path, with: .color(color.opacity(0.55)))
         }
 
         func hill(_ ridge: (CGFloat) -> CGFloat) -> Path {
@@ -571,6 +626,8 @@ enum Palette {
     /// cooler moonlit blue-white at night (same strength).
     static let spill = Color(hex: 0xFFE0B8), moonlight = Color(hex: 0xC4D8FF)
     static let matDark = Color(hex: 0xE9ECF4)
+    /// The mat lit from within at night: a touch brighter and cooler than paper.
+    static let emitDark = Color(hex: 0xF6F8FF)
     /// Pressure and fold shading on the picture, and pressure shading on the border.
     static let press = Color(hex: 0x0A1030), matShade = Color(hex: 0x1A2350)
     static let sky0 = Color(hex: 0x2F8BFF), sky1 = Color(hex: 0x9FD6FF)
