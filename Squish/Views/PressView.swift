@@ -245,10 +245,20 @@ struct PressView: View {
             ctx.stroke(card, with: .color(.black.opacity(0.14)), lineWidth: 1 / scale)
         }
 
-        // Jaws: each runs from past the edge in to its face.
+        // Jaws: each runs from past the edge in to its face, its face lit by
+        // the card according to its own gap (lean opens one and closes the other).
         let far = 512 - edge - 80
-        drawJaw(in: &ctx, from: far, to: leftFace, fine: fine, dark: dark)
-        drawJaw(in: &ctx, from: 1024 - far, to: rightFace, fine: fine, dark: dark)
+        let cardLeft = warp(-A, 0).x, cardRight = warp(A, 0).x
+        drawJaw(in: &ctx, from: far, to: leftFace, rim: Self.rimLight(gap: cardLeft - leftFace), fine: fine, dark: dark)
+        drawJaw(in: &ctx, from: 1024 - far, to: rightFace, rim: Self.rimLight(gap: rightFace - cardRight), fine: fine, dark: dark)
+    }
+
+    /// How brightly the white card lights a jaw's pressing face: 1 from contact
+    /// on, half at a 110-unit gap, falling toward 0 as the jaw backs away to
+    /// the window edge. Smooth through contact (its slope there is 0).
+    static func rimLight(gap: CGFloat) -> CGFloat {
+        let x = max(gap, 0) / 110
+        return 1 / (1 + x * x)
     }
 
     /// One fold's shading: a strip along the crease, mapped through the warp so
@@ -312,8 +322,10 @@ struct PressView: View {
 
     /// One orange slab from `outer` (past the edge) to its pressing face at
     /// `face`, rounded on the face side. Lit along the top, shaded along the
-    /// bottom, with a darker band on the pressing face that ends in a light edge.
-    private func drawJaw(in ctx: inout GraphicsContext, from outer: CGFloat, to face: CGFloat, fine: Bool, dark: Bool) {
+    /// bottom, with a darker band on the pressing face that ends in a light
+    /// edge, as bright as `rim` (0…1, from `rimLight(gap:)`).
+    private func drawJaw(in ctx: inout GraphicsContext, from outer: CGFloat, to face: CGFloat, rim: CGFloat,
+                         fine: Bool, dark: Bool) {
         let left = outer < face
         let (top, bottom) = (Self.jawTop, Self.jawBottom)
         let rect = CGRect(x: min(outer, face), y: top, width: abs(face - outer), height: bottom - top)
@@ -335,16 +347,25 @@ struct PressView: View {
             // Sheen along the top.
             l.fill(Path(rect), with: vertical([.init(color: .white.opacity(0.32), location: 0),
                                                 .init(color: .white.opacity(0), location: 1)], top, top + 140))
-            // Pressing face: a band that darkens toward the card and ends in a light edge.
+            // Pressing face: a band that darkens toward the card and ends in a
+            // light edge. In the small tile the edge only varies a little, so
+            // the 46-point preview doesn't flicker as the dial moves.
             let band: CGFloat = 56
+            let edgeAlpha = fine ? 0.1 + 0.7 * rim : 0.4 + 0.2 * rim
             let edge = Gradient(stops: [.init(color: Palette.burn.opacity(0), location: 0),
                                         .init(color: Palette.burn.opacity(0.26), location: 0.35),
                                         .init(color: Palette.burn.opacity(0.34), location: 0.8),
-                                        .init(color: Palette.faceEdge.opacity(0.55), location: 1)])
+                                        .init(color: Palette.faceEdge.opacity(edgeAlpha), location: 1)])
             l.fill(Path(CGRect(x: left ? face - band : face, y: top, width: band, height: bottom - top)),
                    with: .linearGradient(edge, startPoint: CGPoint(x: left ? face - band : face + band, y: 0),
                                          endPoint: CGPoint(x: face, y: 0)))
             guard fine else { return }
+            // Light reflected off the card, spreading a little way onto the face.
+            let glow: CGFloat = 30
+            l.fill(Path(CGRect(x: left ? face - glow : face, y: top, width: glow, height: bottom - top)),
+                   with: .linearGradient(Gradient(colors: [Palette.faceEdge.opacity(0), Palette.faceEdge.opacity(0.4 * rim)]),
+                                         startPoint: CGPoint(x: left ? face - glow : face + glow, y: 0),
+                                         endPoint: CGPoint(x: face, y: 0)))
             // Soft bevel: lit over the top 9 %, shaded over the bottom 14 %.
             l.fill(Path(rect), with: vertical([.init(color: .white.opacity(0.5), location: 0),
                                                 .init(color: .white.opacity(0), location: 0.09),
