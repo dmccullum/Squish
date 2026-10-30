@@ -1,7 +1,13 @@
+# Generates the previous Squish icon (an orange C-clamp squeezing a photo on an off-white tile) as an
+# Icon Composer document. It no longer builds the shipped icon, which is maintained directly in Icon
+# Composer; gen.py's write_icon refuses to write over Icon/Squish.icon or Squish/Squish.icon.
+# usage: python3 Icon/Source/final.py NAME   (writes Icon/Source/NAME.icon, replacing it wholesale)
 import os, sys, json
+if len(sys.argv) < 2:
+    sys.exit('usage: python3 Icon/Source/final.py NAME')
 here = os.path.dirname(os.path.abspath(__file__))
 exec(open(os.path.join(here, 'clamps.py')).read().split("# 1 · Frosted glass")[0])
-out = sys.argv[1] if len(sys.argv) > 1 else 'Squish'
+out = sys.argv[1]
 handle = svg(f'<path d="{rr(311,118,571,166,24)}"/>')
 screw = svg(f'<rect x="415" y="140" width="52" height="210" rx="14" fill="url(#st)"/><path d="{rr(331,340,551,386,16)}" fill="url(#st)"/>', STEEL)
 lin = lambda a, b: {'linear-gradient': [a, b], 'orientation': {'start': {'x': 0.5, 'y': 0}, 'stop': {'x': 0.5, 'y': 1}}}

@@ -1,11 +1,19 @@
-import os, json
+# Generates the earlier Squish icon concepts (A-press, B-accordion, C-clamp) as Icon Composer documents
+# next to this script; clamps.py and final.py build on write_icon below. None of them builds the shipped
+# icon: Icon/Squish.icon and Squish/Squish.icon are maintained directly in Icon Composer, so write_icon
+# refuses to write over either of them.
+import os, sys, json
 ROOT = os.path.dirname(os.path.abspath(__file__))
+SHIPPED = [os.path.realpath(os.path.join(ROOT, '..', 'Squish.icon')),
+           os.path.realpath(os.path.join(ROOT, '..', '..', 'Squish', 'Squish.icon'))]
 HEAD = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">'
 def svg(body, defs=''):
     return HEAD + (f'<defs>{defs}</defs>' if defs else '') + body + '</svg>'
 
 def write_icon(name, groups, fill, fill_dark=None):
     d = os.path.join(ROOT, name + '.icon'); a = os.path.join(d, 'Assets')
+    if os.path.realpath(d) in SHIPPED:
+        sys.exit('refusing to replace %s: the shipped icon is edited in Icon Composer, not generated' % os.path.normpath(d))
     os.makedirs(a, exist_ok=True)
     for f in os.listdir(a): os.remove(os.path.join(a, f))
     gj = []
