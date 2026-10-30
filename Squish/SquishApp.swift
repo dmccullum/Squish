@@ -13,11 +13,11 @@ struct SquishApp: App {
                 .environment(app.runner)
                 .environment(app.editor)
                 // Grows so the results list can show more rows; Zoom fills the screen.
-                .frame(minWidth: 480, maxWidth: .infinity, minHeight: 440, maxHeight: .infinity)
+                .frame(minWidth: 480, maxWidth: .infinity, minHeight: 500, maxHeight: .infinity)
         }
         .windowStyle(.hiddenTitleBar)
         // Opens at the minimum; without a default size a new install opened at 900×472.
-        .defaultSize(width: 480, height: 440)
+        .defaultSize(width: 480, height: 500)
         .windowResizability(.contentMinSize)
         .commands {
             SquishCommands(settings: app.settings, runner: app.runner, editor: app.editor)

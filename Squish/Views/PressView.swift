@@ -1,75 +1,145 @@
 import SwiftUI
 
 /// The app icon's press, drawn live: two orange jaws close on a square photo
-/// card as `squeeze` goes from 0 (open) to 1 (pressed, the icon's pose).
+/// card as `squeeze` goes from 0 (open) to 1 (the deepest squeeze).
 ///
-/// From 0 to `contact` the jaws slide in from the edges and the card stays a
-/// flat square. Past `contact` they push the card's sides in, its top and
-/// bottom bow outward and the picture narrows. At 1 the jaw faces sit on
-/// x 256 and 768, the card's corners on y 256 and 768 and its edges bow to
-/// y 192 and 832, as in the icon. `squeeze` may run to 1.15 for the pop.
+/// - 0 to `contact`: the jaws slide in from the edges; the card stays a flat
+///   square.
+/// - `contact` to `pose`: the jaws push the card's sides in, its top and
+///   bottom bow outward and the picture narrows. At `pose` it matches the
+///   icon: jaw faces on x 256 and 768, card corners on y 256 and 768, edges
+///   bowing to y 192 and 832.
+/// - `pose` to 1: the card narrows further and crumples. Creases appear by
+///   the jaws first and spread inward, the picture follows them, and the top
+///   and bottom edges turn wavy.
+/// - Up to 1.15: extra squash for the About window's pop.
 ///
 /// Geometry is authored in the icon's 1024-point space (the icon is generated
 /// by `build2.py`, variant `r2-6-bulgejaws`) so the window art and the app
 /// icon stay the same object.
 @Animatable
 struct PressView: View {
+    /// How the jaws meet the view's edges.
+    enum Framing {
+        /// The jaws run in from the view's left and right edges; the art is as
+        /// wide as the view and scales with its height. For a view that spans
+        /// a window.
+        case bleed
+        /// A rounded navy tile with the jaws running off its edges, like the
+        /// icon. For small sizes with no window edge nearby.
+        case tile
+    }
+
     var squeeze: Double
-    /// Shrinks the card (1 = full size) to act out a pixel limit. The jaws
-    /// close on the smaller card.
-    var photoScale: Double = 1
+    @AnimatableIgnored var framing: Framing = .tile
     /// Shifts both jaws toward one side, −1 (left) to 1 (right), up to 28
     /// points of the 1024 canvas; a card they grip moves with them.
     var lean: Double = 0
 
     @AnimatableIgnored @Environment(\.colorScheme) private var scheme
 
-    /// The part of the canvas drawn: both jaws at rest, plus their shadows.
-    static let art = CGRect(x: -36, y: 100, width: 1096, height: 824)
     /// The squeeze at which the jaws reach the card's sides.
-    static let contact = 0.15
+    static let contact = 0.18
+    /// The squeeze at which the press matches the icon; crumpling starts here.
+    static let pose = 0.55
 
     var body: some View {
-        Canvas { ctx, size in
-            let a = Self.art
-            let scale = min(size.width / a.width, size.height / a.height)
-            ctx.translateBy(x: (size.width - a.width * scale) / 2 - a.minX * scale,
-                            y: (size.height - a.height * scale) / 2 - a.minY * scale)
+        let canvas = Canvas { ctx, size in
+            let scale: CGFloat, edge: CGFloat
+            switch framing {
+            case .bleed:
+                // Units 116…916 fill the height; the width shows as much as fits.
+                scale = size.height / 800
+                edge = size.width / 2 / scale
+                ctx.translateBy(x: size.width / 2 - 512 * scale, y: size.height / 2 - 516 * scale)
+            case .tile:
+                let side = min(size.width, size.height)
+                scale = side / 1024
+                edge = 512
+                ctx.translateBy(x: (size.width - side) / 2, y: (size.height - side) / 2)
+            }
             ctx.scaleBy(x: scale, y: scale)
-            draw(in: &ctx, scale: scale)
+            draw(in: &ctx, scale: scale, edge: edge)
         }
-        .aspectRatio(Self.art.width / Self.art.height, contentMode: .fit)
         .accessibilityHidden(true)
+        switch framing {
+        case .bleed: canvas
+        case .tile: canvas.aspectRatio(1, contentMode: .fit)
+        }
     }
 
     // MARK: - Geometry
 
     /// Photo space: the card is a square centred on (0, 0), half-size `A`.
     private static let A: CGFloat = 320
-    /// Card half-size at rest, and its half-width and half-height at the
-    /// jaws when pressed.
+    /// Card half-size at rest; half-width and half-height at the jaws at the
+    /// icon's pose; and half-width at the deepest squeeze.
     private static let rest: CGFloat = 300
-    private static let pressedHalfWidth: CGFloat = 272
-    private static let pressedHalfHeight: CGFloat = 256
-    /// How far the top and bottom edges bow out at the centre when pressed,
+    private static let poseHalfWidth: CGFloat = 272
+    private static let poseHalfHeight: CGFloat = 256
+    private static let deepHalfWidth: CGFloat = 242
+    /// How far the top and bottom bow out at the centre at the icon's pose,
     /// as a fraction of the half-height: 256 × 1.25 = 320, so y 192 and 832.
-    private static let pressedBow: CGFloat = 0.25
+    private static let poseBow: CGFloat = 0.25
     /// The card runs this far under each jaw face once gripped.
     private static let overlap: CGFloat = 16
-    /// Jaw face distance from the centre at rest.
-    private static let openFace: CGFloat = 336
-    private static let jawWidth: CGFloat = 200
     private static let jawTop: CGFloat = 128, jawBottom: CGFloat = 896
-    private static let faceRadius: CGFloat = 96, backRadius: CGFloat = 40
+    private static let faceRadius: CGFloat = 96
+    /// Jaw face distance from the centre at rest in a tile, and the least it
+    /// may be in a bleed, so the gap to the card stays clear.
+    private static let tileOpenFace: CGFloat = 384
+    /// How much of each jaw shows at rest when it bleeds off a window edge.
+    private static let bleedStub: CGFloat = 130
 
-    /// Maps photo space onto the canvas: scales x and y, then bows the top and
-    /// bottom edges out, most at the centre.
+    /// A fold running down the card, a little off vertical: where it meets
+    /// the top and bottom edges (−1…1 across the card), the crumple at which
+    /// it starts, and whether it pushes the edges out (a ridge) or in (a
+    /// valley).
+    private struct Crease { var top: CGFloat, bottom: CGFloat, start: CGFloat, ridge: Bool }
+    /// By the jaws first, then spreading inward, each at its own slant so they
+    /// read as crumpling rather than pleats.
+    private static let creases = [Crease(top: -0.68, bottom: -0.56, start: 0, ridge: true),
+                                  Crease(top: 0.6, bottom: 0.72, start: 0.06, ridge: true),
+                                  Crease(top: -0.22, bottom: -0.36, start: 0.3, ridge: false),
+                                  Crease(top: 0.4, bottom: 0.27, start: 0.42, ridge: false),
+                                  Crease(top: 0.08, bottom: -0.04, start: 0.7, ridge: true)]
+    /// Below the detail threshold only two folds, so a 46-point tile stays legible.
+    private static let smallCreases = [Crease(top: -0.5, bottom: -0.42, start: 0, ridge: true),
+                                       Crease(top: 0.44, bottom: 0.52, start: 0.1, ridge: true)]
+
+    /// A crease with its strength, 0…1.
+    private struct Fold {
+        var crease: Crease, a: CGFloat
+        /// Where the fold crosses height `v` (−1 top … 1 bottom).
+        func u(at v: CGFloat) -> CGFloat {
+            crease.top + (crease.bottom - crease.top) * (min(max(v, -1), 1) + 1) / 2
+        }
+    }
+
+    /// Maps photo space onto the canvas: scales x and y, bows the top and
+    /// bottom edges out, then adds the folds.
     private struct Warp {
         var cx: CGFloat, cy: CGFloat, kx: CGFloat, ky: CGFloat, bow: CGFloat
+        var folds: [Fold]
+        /// 0 until the card crumples; ripples the top and bottom edges.
+        var ragged: CGFloat
 
         func callAsFunction(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
-            let u = min(max(x / PressView.A, -1.2), 1.2)
-            return CGPoint(x: cx + x * kx, y: cy + y * ky * (1 + bow * (1 - u * u)))
+            let A = PressView.A
+            let u = min(max(x / A, -1.2), 1.2), v = min(max(y / A, -1.2), 1.2)
+            var dx: CGFloat = 0, out: CGFloat = 0
+            for f in folds where f.a > 0 {
+                let d = u - f.u(at: v)
+                // Material gathers into the fold, so lines across it step; the
+                // outline swells (or dips) smoothly where it meets the edge.
+                dx -= f.a * 6 * tanh(d / 0.06) * (1 - min(u * u * u * u, 1))
+                let reach: CGFloat = 0.3
+                if abs(d) < reach { out += f.a * (f.crease.ridge ? 13 : -6) * (1 + cos(.pi * d / reach)) / 2 }
+            }
+            out += ragged * 3 * sin(u * 21 + 1.3) * pow(abs(v), 4)
+            let edgeWeight = abs(v)   // 0 through the middle, 1 at the top and bottom edges
+            return CGPoint(x: cx + (x + dx) * kx,
+                           y: cy + y * ky * (1 + bow * (1 - u * u)) + (v < 0 ? -1 : 1) * out * edgeWeight)
         }
 
         func path(_ points: [CGPoint]) -> Path {
@@ -82,31 +152,43 @@ struct PressView: View {
 
     // MARK: - Drawing
 
-    private func draw(in ctx: inout GraphicsContext, scale: CGFloat) {
+    private func draw(in ctx: inout GraphicsContext, scale: CGFloat, edge: CGFloat) {
         let s = CGFloat(min(max(squeeze, 0), 1.15))
-        // 0 until the jaws touch, 1 at the icon's pose, about 1.18 at full overshoot.
-        let c = max(0, (s - Self.contact) / (1 - Self.contact))
-        let k = CGFloat(min(max(photoScale, 0.3), 1))
-        // Below about 0.15 (the size menu's 46-point preview) shadows, bevels and
-        // pressure shading are under a pixel, so they're skipped.
+        let contact = CGFloat(Self.contact), pose = CGFloat(Self.pose)
+        // c: 0 at contact to 1 at the icon's pose. k: the crumple, 0 at the pose,
+        // 1 at the deepest squeeze, about 1.33 at the pop.
+        let c = min(max((s - contact) / (pose - contact), 0), 1)
+        let k = max(0, (s - pose) / (1 - pose))
+        // Below about 0.15 (the size menu's 46-point tile and the results header)
+        // shadows, bevels and pressure shading are under a pixel, so they're skipped.
         let fine = scale > 0.15
         let dark = scheme == .dark
 
-        let halfWidth = lerp(Self.rest, Self.pressedHalfWidth, c)
-        let face = (s < Self.contact ? lerp(Self.openFace, Self.rest - Self.overlap, s / Self.contact)
-                                     : halfWidth - Self.overlap) * k
+        if framing == .tile {
+            let tile = Path(roundedRect: CGRect(x: 0, y: 0, width: 1024, height: 1024), cornerRadius: 230, style: .continuous)
+            ctx.clip(to: tile)
+            ctx.fill(tile, with: .linearGradient(Gradient(colors: dark ? [Palette.tile0Dark, Palette.tile1Dark] : [Palette.tile0, Palette.tile1]),
+                                                 startPoint: CGPoint(x: 0, y: 0), endPoint: CGPoint(x: 0, y: 1024)))
+        }
+
+        let halfWidth = lerp(Self.rest, Self.poseHalfWidth, c) - (Self.poseHalfWidth - Self.deepHalfWidth) * k
+        let openFace = framing == .tile ? Self.tileOpenFace : max(edge - Self.bleedStub, Self.tileOpenFace)
+        let face = s < contact ? lerp(openFace, Self.rest - Self.overlap, s / contact) : halfWidth - Self.overlap
         let shift = 28 * CGFloat(min(max(lean, -1), 1))
         let cardShift = shift * min(1, c * 4)
+        let gates = fine ? Self.creases : Self.smallCreases
+        let folds = gates.map { g in Fold(crease: g, a: min(max((k - g.start) / 0.35, 0), 1) * (0.6 + 0.4 * min(k, 1.33))) }
         let warp = Warp(cx: 512 + cardShift, cy: 512,
-                        kx: halfWidth / Self.A * k,
-                        ky: lerp(Self.rest, Self.pressedHalfHeight, c) / Self.A * k,
-                        bow: Self.pressedBow * c)
-        let pressure = min(c, 1.2)
+                        kx: halfWidth / Self.A,
+                        ky: (lerp(Self.rest, Self.poseHalfHeight, c) - 8 * k) / Self.A,
+                        bow: Self.poseBow * c + 0.08 * k,
+                        folds: folds, ragged: fine ? min(k, 1.33) : 0)
+        let pressure = min(c + 0.3 * k, 1.4)
         let leftFace = 512 + shift - face, rightFace = 512 + shift + face
 
         // Card
         let A = Self.A
-        let steps = fine ? (corner: 6, edge: 12) : (corner: 3, edge: 6)
+        let steps = fine ? (corner: 6, edge: 32) : (corner: 3, edge: 10)
         let card = warp.path(Self.roundedRect(A, A, r: 44, steps))
         let windowHalf = (x: A - lerp(46, 40, c), y: A - lerp(46, 54, c))
         let window = warp.path(Self.roundedRect(windowHalf.x, windowHalf.y, r: 22, steps))
@@ -121,7 +203,7 @@ struct PressView: View {
                                                    startPoint: CGPoint(x: 0, y: cardBox.minY), endPoint: CGPoint(x: 0, y: cardBox.maxY)))
                 l.drawLayer { p in
                     p.clip(to: window)
-                    drawPicture(in: &p, warp: warp, squash: c, steps: fine ? 48 : 12, dark: dark)
+                    drawPicture(in: &p, warp: warp, squash: c, crumple: k, steps: fine ? 48 : 14, dark: dark)
                     if fine, pressure > 0 {
                         // Darker where the jaws press, a faint lift in the middle.
                         p.fill(Path(cardBox), with: .linearGradient(
@@ -148,23 +230,61 @@ struct PressView: View {
                             startPoint: CGPoint(x: leftFace, y: 0), endPoint: CGPoint(x: rightFace, y: 0)))
                     }
                 }
+                // Folds: each a soft shadow on its jaw side and a softer highlight toward the middle.
+                let active = warp.folds.filter { $0.a > 0.01 }
+                if !active.isEmpty {
+                    l.drawLayer { f in
+                        f.clip(to: card)
+                        for fold in active { drawFold(fold, in: &f, warp: warp, fine: fine) }
+                    }
+                }
             }
         }
-        // A hairline keeps the white border off a light background.
-        if !dark {
+        // A hairline keeps the white border off a light window background.
+        if !dark, framing == .bleed {
             ctx.stroke(card, with: .color(.black.opacity(0.14)), lineWidth: 1 / scale)
         }
 
-        // Jaws
-        drawJaw(in: &ctx, face: leftFace, left: true, fine: fine, dark: dark)
-        drawJaw(in: &ctx, face: rightFace, left: false, fine: fine, dark: dark)
+        // Jaws: each runs from past the edge in to its face.
+        let far = 512 - edge - 80
+        drawJaw(in: &ctx, from: far, to: leftFace, fine: fine, dark: dark)
+        drawJaw(in: &ctx, from: 1024 - far, to: rightFace, fine: fine, dark: dark)
+    }
+
+    /// One fold's shading: a strip along the crease, mapped through the warp so
+    /// it bends with the card, shaded dark on the jaw side and light on the
+    /// other.
+    private func drawFold(_ fold: Fold, in ctx: inout GraphicsContext, warp: Warp, fine: Bool) {
+        let A = Self.A
+        let half: CGFloat = fine ? 0.1 : 0.14   // strip half-width, in card widths
+        let n = fine ? 12 : 4
+        func edge(_ offset: CGFloat) -> [CGPoint] {
+            (0...n).map { i in
+                let v = -1.1 + 2.2 * CGFloat(i) / CGFloat(n)
+                return CGPoint(x: (fold.u(at: v) + offset) * A, y: v * A)
+            }
+        }
+        var strip = Path()
+        strip.addLines((edge(-half) + edge(half).reversed()).map { warp($0.x, $0.y) })
+        strip.closeSubpath()
+        let mid = fold.u(at: 0)
+        let a = warp((mid - half) * A, 0), b = warp((mid + half) * A, 0)
+        let shadow = Palette.press.opacity((fine ? 0.26 : 0.34) * fold.a)
+        let light = Color.white.opacity((fine ? 0.22 : 0.3) * fold.a)
+        let (first, second) = mid < 0 ? (shadow, light) : (light, shadow)
+        let clear = Color.white.opacity(0)
+        ctx.fill(strip, with: .linearGradient(
+            Gradient(stops: [.init(color: clear, location: 0), .init(color: first, location: 0.48),
+                             .init(color: second, location: 0.52), .init(color: clear, location: 1)]),
+            startPoint: a, endPoint: b))
     }
 
     /// Sky is the card's own fill; this adds the sun and the two hills.
-    private func drawPicture(in ctx: inout GraphicsContext, warp: Warp, squash: CGFloat, steps n: Int, dark: Bool) {
+    private func drawPicture(in ctx: inout GraphicsContext, warp: Warp, squash: CGFloat, crumple: CGFloat,
+                             steps n: Int, dark: Bool) {
         let A = Self.A
-        // The sun narrows to 0.62 of its width at the icon's pose, on top of the card's squeeze.
-        let sunWidth = 70 * max(0.4, lerp(1, 0.62, squash))
+        // The sun narrows to 0.62 of its width at the icon's pose, a little more as the card crumples.
+        let sunWidth = 70 * max(0.45, lerp(1, 0.62, squash) - 0.1 * crumple)
         let sun = (0..<n).map { i -> CGPoint in
             let t = CGFloat(i) / CGFloat(n) * 2 * .pi
             return CGPoint(x: -120 + sunWidth * cos(t), y: -120 + 70 * sin(t))
@@ -190,15 +310,16 @@ struct PressView: View {
         }
     }
 
-    /// One orange slab, its pressing face at `face`, rounded more on the face
-    /// side. Lit along the top, shaded along the bottom, with a darker band
-    /// on the pressing face that ends in a light edge.
-    private func drawJaw(in ctx: inout GraphicsContext, face: CGFloat, left: Bool, fine: Bool, dark: Bool) {
-        let (top, bottom, w) = (Self.jawTop, Self.jawBottom, Self.jawWidth)
-        let rect = CGRect(x: left ? face - w : face, y: top, width: w, height: bottom - top)
-        let (f, b) = (Self.faceRadius, Self.backRadius)
-        let radii = left ? RectangleCornerRadii(topLeading: b, bottomLeading: b, bottomTrailing: f, topTrailing: f)
-                         : RectangleCornerRadii(topLeading: f, bottomLeading: f, bottomTrailing: b, topTrailing: b)
+    /// One orange slab from `outer` (past the edge) to its pressing face at
+    /// `face`, rounded on the face side. Lit along the top, shaded along the
+    /// bottom, with a darker band on the pressing face that ends in a light edge.
+    private func drawJaw(in ctx: inout GraphicsContext, from outer: CGFloat, to face: CGFloat, fine: Bool, dark: Bool) {
+        let left = outer < face
+        let (top, bottom) = (Self.jawTop, Self.jawBottom)
+        let rect = CGRect(x: min(outer, face), y: top, width: abs(face - outer), height: bottom - top)
+        let f = min(Self.faceRadius, rect.width)
+        let radii = left ? RectangleCornerRadii(topLeading: 0, bottomLeading: 0, bottomTrailing: f, topTrailing: f)
+                         : RectangleCornerRadii(topLeading: f, bottomLeading: f, bottomTrailing: 0, topTrailing: 0)
         let jaw = UnevenRoundedRectangle(cornerRadii: radii, style: .circular).path(in: rect)
         func vertical(_ stops: [Gradient.Stop], _ y0: CGFloat, _ y1: CGFloat) -> GraphicsContext.Shading {
             .linearGradient(Gradient(stops: stops), startPoint: CGPoint(x: 0, y: y0), endPoint: CGPoint(x: 0, y: y1))
@@ -235,7 +356,7 @@ struct PressView: View {
     // MARK: - Shapes
 
     /// Points round a rounded rect centred on (0, 0) in photo space, with the
-    /// straight runs sampled too so they bow under the warp.
+    /// straight runs sampled too so they bow and fold under the warp.
     private static func roundedRect(_ hw: CGFloat, _ hh: CGFloat, r: CGFloat,
                                     _ steps: (corner: Int, edge: Int)) -> [CGPoint] {
         let centres = [CGPoint(x: hw - r, y: -hh + r), CGPoint(x: hw - r, y: hh - r),
@@ -264,12 +385,14 @@ struct PressView: View {
 
 /// The icon's colors (Squish.icon): light, and the icon's dark appearance.
 enum Palette {
+    static let tile0 = Color(hex: 0x2B4596), tile1 = Color(hex: 0x0E1A4A)
+    static let tile0Dark = Color(hex: 0x16224E), tile1Dark = Color(hex: 0x04081C)
     static let jaw0 = Color(hex: 0xFFA44E), jaw1 = Color(hex: 0xE2501A)
     static let jaw0Dark = Color(hex: 0xF58A3A), jaw1Dark = Color(hex: 0xB93E0C)
     /// Shading on the jaws' bottom edge and pressing face, and the face's lit edge.
     static let burn = Color(hex: 0x5A1A00), faceEdge = Color(hex: 0xFFE2C4)
     static let matDark = Color(hex: 0xE9ECF4)
-    /// Pressure shading on the picture and on the border.
+    /// Pressure and fold shading on the picture, and pressure shading on the border.
     static let press = Color(hex: 0x0A1030), matShade = Color(hex: 0x1A2350)
     static let sky0 = Color(hex: 0x2F8BFF), sky1 = Color(hex: 0x9FD6FF)
     static let sky0Dark = Color(hex: 0x245FC8), sky1Dark = Color(hex: 0x6FA8E8)
@@ -287,10 +410,19 @@ private extension Color {
     }
 }
 
-#Preview("Squeeze") {
-    HStack(spacing: 20) {
-        ForEach([0, Double(PressView.contact), 0.55, 1, 1.15], id: \.self) { s in
-            PressView(squeeze: s).frame(width: 160)
+#Preview("Bleed") {
+    VStack(spacing: 12) {
+        ForEach([0, 0.06, PressView.contact, PressView.pose, 0.8, 1, 1.15], id: \.self) { s in
+            PressView(squeeze: s, framing: .bleed).frame(width: 480, height: 220)
+        }
+    }
+}
+
+#Preview("Tile") {
+    HStack(spacing: 12) {
+        ForEach([0, PressView.pose, 1], id: \.self) { s in
+            PressView(squeeze: s).frame(width: 46, height: 50)
+            PressView(squeeze: s).frame(width: 80, height: 80)
         }
     }
     .padding()

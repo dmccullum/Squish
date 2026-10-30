@@ -57,9 +57,11 @@ struct ContentView: View {
     private var main: some View {
         VStack(spacing: 0) {
             Button(action: chooseFiles) {
-                PressView(squeeze: squeeze + 0.12 * bite, photoScale: photoScale)
-                    .frame(height: 170)
-                    .padding(.top, 34)
+                // The jaws run in from the window's edges.
+                PressView(squeeze: squeeze + 0.12 * bite, framing: .bleed)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 280)
+                    .padding(.top, 30)
             }
             .buttonStyle(.plain)
             .onHover { hoveringHero = $0 }
@@ -68,7 +70,7 @@ struct ContentView: View {
 
             caption
                 .frame(height: 64)
-                .padding(.top, 14)
+                .padding(.top, 8)
 
             Spacer(minLength: 0)
 
@@ -77,7 +79,6 @@ struct ContentView: View {
                 .padding(.bottom, 16)
         }
         .animation(heroSpring, value: squeeze)
-        .animation(heroSpring, value: photoScale)
         .onChange(of: runner.completed) { _, _ in
             guard runner.isRunning, !reduceMotion else { return }
             withAnimation(.easeOut(duration: 0.08)) {
@@ -88,15 +89,14 @@ struct ContentView: View {
         }
     }
 
+    /// Open at rest; the jaws move in a little under the pointer, grip the card
+    /// while files hover, act out a highlighted menu choice, and press as deep
+    /// as the recipe while a batch runs.
     private var squeeze: Double {
-        if runner.isRunning { return 1 }
-        if isTargeted { return 0.55 }
+        if runner.isRunning { return settings.pressDepth }
+        if isTargeted { return PressView.contact + 0.06 }
         if let preview = editor.preview { return preview.squeeze ?? 0 }
-        return hoveringHero ? 0.12 : 0
-    }
-
-    private var photoScale: Double {
-        runner.isRunning ? 1 : editor.preview?.photoScale ?? 1
+        return hoveringHero ? 0.06 : 0
     }
 
     private var heroSpring: Animation {

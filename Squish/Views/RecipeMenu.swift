@@ -318,7 +318,7 @@ final class RecipeDialView: NSView {
         let p = currentPreview
         big.stringValue = p.title
         why.stringValue = p.detail
-        press.rootView = PressView(squeeze: p.squeeze ?? 0, photoScale: p.photoScale ?? 1)
+        press.rootView = PressView(squeeze: p.squeeze ?? 0)
         slider.setAccessibilityValueDescription(p.title)
     }
 
@@ -347,7 +347,7 @@ final class RecipeDialView: NSView {
             return RecipePreview(squeeze: isOn ? RecipeScale.squeeze(bytes: settings.targetBytes) : 0,
                                  title: title, detail: detail)
         }
-        return RecipePreview(squeeze: 0.3, photoScale: isOn ? RecipeScale.photoScale(pixels: settings.activePixels) : 1,
+        return RecipePreview(squeeze: isOn ? RecipeScale.squeeze(pixels: settings.activePixels) : 0,
                              title: title, detail: detail)
     }
 }

@@ -2,12 +2,13 @@ import AppKit
 import DMKit
 import SwiftUI
 
-/// The About window's signature: the icon's press, live. Drag down on it (or
-/// scroll down over it) to close the jaws on the photo, with a haptic detent
-/// at each of Squish's own presets (Share 10 MB, Email 5 MB and Web 1 MB,
-/// spaced as a 24 MB photo would shrink) and a pop when they bottom out at
-/// Small 500 KB. Release and they spring open. A click runs the whole squeeze
-/// on its own.
+/// The About window's signature: the icon's press, live, with its jaws
+/// running in from the window's edges. Drag down on it (or scroll down over
+/// it) to close the jaws on the photo, with a haptic detent at each of
+/// Squish's own presets (Share 10 MB, Email 5 MB and Web 1 MB, at the depths
+/// the size menu shows them) and a pop when they bottom out at Small 500 KB,
+/// the most crumpled. Release and they spring open. A click runs the whole
+/// squeeze on its own.
 ///
 /// While nobody holds it and the window is key, the press floats gently up and
 /// down. 0.6 s after the window opens it gives one small squeeze and opens
@@ -16,35 +17,22 @@ import SwiftUI
 /// demo squeeze or lean, the pop has no bounce, and the jaws ease open
 /// without a spring.
 struct AboutPress: View {
-    /// The photo's size before squeezing and the presets it passes on the way
-    /// down, as in Settings › File Size; they place the detents.
-    static let original = 24_000_000
-    static let detents: [(name: String, bytes: Int)] = [
+    /// The presets the jaws pass on the way down, as in Settings › File Size,
+    /// at the squeeze the size menu shows for each. Small is 1, the deepest.
+    static let detents: [(name: String, squeeze: Double)] = [
         ("Share", 10_000_000), ("Email", 5_000_000), ("Web", 1_000_000), ("Small", 500_000)
-    ]
-    static var smallest: Int { detents.last!.bytes }
+    ].map { ($0.0, RecipeScale.squeeze(bytes: $0.1)) }
 
-    /// Size at a squeeze from 0 (open) to 1 (shut): falls geometrically, so
-    /// every preset gets a fair share of the travel.
-    static func bytes(at squeeze: Double) -> Int {
-        let s = min(max(squeeze, 0), 1)
-        return Int(Double(original) * pow(Double(smallest) / Double(original), s))
-    }
-
-    static func squeeze(at bytes: Int) -> Double {
-        log(Double(original) / Double(bytes)) / log(Double(original) / Double(smallest))
-    }
-
-    /// How many presets the photo fits under at `squeeze`.
+    /// How many presets the jaws have reached at `squeeze`.
     static func stage(at squeeze: Double) -> Int {
-        let b = bytes(at: squeeze + 0.0001)
-        return detents.filter { b <= $0.bytes }.count
+        detents.filter { squeeze + 0.0001 >= $0.squeeze }.count
     }
 
     /// Points of downward drag for a full squeeze.
-    private static let travel: CGFloat = 90
-    private static let pressHeight: CGFloat = 100
-    private static let pressSize = CGSize(width: pressHeight * PressView.art.width / PressView.art.height, height: pressHeight)
+    private static let travel: CGFloat = 100
+    private static let pressHeight: CGFloat = 200
+    /// AboutView's side padding; the press extends past it to the window's edges.
+    private static let windowInset: CGFloat = 32
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// False while the About window isn't key, which pauses the float.
@@ -68,15 +56,14 @@ struct AboutPress: View {
     @State private var hovering = false
     @State private var pending: Task<Void, Never>?
     @State private var scroll = ScrollMonitor()
-    /// The signature's width, to find the centre of the press.
+    /// The press's width (the window's), to find its centre.
     @State private var width: CGFloat = 0
 
     var body: some View {
-        PressView(squeeze: squeeze + punch * 0.15 + leanIn, lean: lean)
-            .frame(width: Self.pressSize.width, height: Self.pressSize.height)
-            .offset(y: -Self.driftHeight * drift)
+        PressView(squeeze: squeeze + punch * 0.15 + leanIn, framing: .bleed, lean: lean)
             .frame(maxWidth: .infinity)
-        .padding(.top, 4)
+            .frame(height: Self.pressHeight)
+            .offset(y: -Self.driftHeight * drift)
         .contentShape(Rectangle())
         .pointerStyle(dragStart == nil ? .grabIdle : .grabActive)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
@@ -110,6 +97,10 @@ struct AboutPress: View {
                     if hypot(value.translation.width, value.translation.height) < 3 { press() } else { release() }
                 }
         )
+        // Negative padding lets the jaws reach the window's edges without
+        // widening the About window's column.
+        .padding(.horizontal, -Self.windowInset)
+        .padding(.top, 4)
         .onChange(of: floats, initial: true) { _, floats in
             if floats {
                 withAnimation(.easeInOut(duration: Self.driftCycle / 2).repeatForever(autoreverses: true)) { drift = 1 }
@@ -131,7 +122,7 @@ struct AboutPress: View {
         .accessibilityAdjustableAction { direction in
             let stage = Self.stage(at: squeeze)
             let next = min(max(stage + (direction == .increment ? 1 : -1), 0), Self.detents.count)
-            let target = next == 0 ? 0 : Self.squeeze(at: Self.detents[next - 1].bytes)
+            let target = next == 0 ? 0 : Self.detents[next - 1].squeeze
             withDMAnimation(.snappy) { squeeze = target }
             popped = next == Self.detents.count
         }
@@ -164,9 +155,8 @@ struct AboutPress: View {
     private func set(_ raw: Double) {
         used = true
         var value = min(max(raw, 0), 1)
-        for detent in Self.detents.dropLast() {
-            let at = Self.squeeze(at: detent.bytes)
-            if abs(value - at) < 0.025 { value = at }
+        for detent in Self.detents.dropLast() where abs(value - detent.squeeze) < 0.025 {
+            value = detent.squeeze
         }
         let before = Self.stage(at: squeeze)
         squeeze = value
@@ -218,16 +208,16 @@ struct AboutPress: View {
         withDMAnimation(.spring) { squeeze = 0 }
     }
 
-    /// Once per window opening, 0.6 s in: a small squeeze, about a fifth of
-    /// the travel, so the jaws just bite the card (short of the first preset,
-    /// so no detent), and back open.
+    /// Once per window opening, 0.6 s in: a small squeeze, a fifth of the
+    /// travel, so the jaws slide in and just touch the card (well short of
+    /// the first preset, so no detent), and back open.
     /// Skipped under Reduce Motion or once the user has squeezed.
     private func demo() async {
         guard !reduceMotion else { return }
         try? await Task.sleep(for: .milliseconds(600))
         guard !Task.isCancelled, !used, dragStart == nil else { return }
         withAnimation(DMMotion.spring.animation) {
-            squeeze = 0.21
+            squeeze = 0.2
         } completion: {
             guard !used, dragStart == nil else { return }
             withDMAnimation(.spring) { squeeze = 0 }
@@ -253,12 +243,12 @@ struct AboutPress: View {
         guard !reduceMotion else { return }
         var inward = 0.0, side = 0.0
         if let p {
-            // The press is centered under 4 pt of top padding; the drift is ignored.
+            // Measured in the press's own frame; the drift is ignored.
             let dx = p.x - width / 2
-            let dy = p.y - (4 + Self.pressSize.height / 2)
-            let near = max(0, 1 - hypot(dx, dy) / 110)
-            inward = 0.08 * near
-            side = near * Double(max(-1, min(1, dx / 50)))
+            let dy = p.y - Self.pressHeight / 2
+            let near = max(0, 1 - hypot(dx, dy) / 150)
+            inward = 0.06 * near
+            side = near * Double(max(-1, min(1, dx / 60)))
         }
         withDMAnimation(.smooth) {
             leanIn = inward

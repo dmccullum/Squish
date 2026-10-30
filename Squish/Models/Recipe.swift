@@ -20,7 +20,6 @@ enum RecipeField: String, CaseIterable, Identifiable {
 /// (a highlighted menu item, or the dial mid-drag).
 struct RecipePreview: Equatable {
     var squeeze: Double?
-    var photoScale: Double?
     var title: String
     var detail: String
 }
@@ -69,15 +68,26 @@ struct RecipeActions {
 /// and tuck presets into a submenu; the menu bar lists everything flat.
 enum RecipeMenuStyle { case popUp, menuBar }
 
-/// How hard the press squeezes for a byte target, and how big the photo is
-/// for a pixel target. Shared by the dial and the hover previews.
+/// How hard the press squeezes for a limit: the smaller the file size or
+/// pixel limit, the deeper. Both run on a log scale from the jaws just
+/// touching the card (80 MB, 8192 px) to the deepest squeeze (500 KB,
+/// 640 px), so the presets land at Uploads 0.26, Print 0.37, Share 0.52,
+/// Email 0.63, Web 0.89, Small 1, and 4K 0.40, Large 0.55, Web 0.65,
+/// Medium 0.78, Thumbnail 1. Shared by the window, the dials, the hover
+/// previews and the About window's detents.
 enum RecipeScale {
     static func squeeze(bytes: Int) -> Double {
-        let hi = log(50_000_000.0), lo = log(300_000.0)
-        return min(1, max(0.08, (hi - log(Double(max(bytes, 1)))) / (hi - lo)))
+        depth(Double(max(bytes, 1)), from: 80_000_000, to: 500_000)
     }
-    static func photoScale(pixels: Int) -> Double {
-        0.42 + 0.58 * (min(Double(pixels), 4096) / 4096).squareRoot()
+
+    static func squeeze(pixels: Int) -> Double {
+        depth(Double(max(pixels, 1)), from: 8192, to: 640)
+    }
+
+    /// 0 open, `PressView.contact` at `loose`, 1 at `tight` and below.
+    private static func depth(_ value: Double, from loose: Double, to tight: Double) -> Double {
+        let t = min(max(log(loose / value) / log(loose / tight), 0), 1)
+        return PressView.contact + (1 - PressView.contact) * t
     }
 }
 
@@ -122,6 +132,15 @@ extension SquishSettings {
         case .format:     return formatPhrase
         case .location:   return locationPhrase
         }
+    }
+
+    /// How deep the press squeezes while a batch runs: the deeper of the two
+    /// limits, or the icon's pose when neither is on.
+    var pressDepth: Double {
+        let size = sizeTargetEnabled ? RecipeScale.squeeze(bytes: targetBytes) : 0
+        let pixels = dimensionEnabled ? RecipeScale.squeeze(pixels: activePixels) : 0
+        let depth = max(size, pixels)
+        return depth > 0 ? depth : PressView.pose
     }
 
     /// The pixel limit currently in effect, for the dial and previews.
@@ -187,14 +206,14 @@ extension SquishSettings {
 
     private func dimensionOptions(_ style: RecipeMenuStyle, _ actions: RecipeActions) -> [RecipeOption] {
         var any = RecipeOption.choice("Any Dimensions", checked: !dimensionEnabled,
-                                      preview: .init(photoScale: 1, title: "Any dimensions", detail: "Keeps every pixel")) {
+                                      preview: .init(squeeze: 0, title: "Any dimensions", detail: "Keeps every pixel")) {
             self.dimensionEnabled = false
         }
         any.isAny = true
         let presets: [RecipeOption] = sortedDimensionPresets.map { p in
             let o = RecipeOption.choice(p.name, detail: "\(p.pixels) px",
                                         checked: dimensionEnabled && dimensionMode == .maxLongSide && longSide == p.pixels,
-                                        preview: .init(photoScale: RecipeScale.photoScale(pixels: p.pixels),
+                                        preview: .init(squeeze: RecipeScale.squeeze(pixels: p.pixels),
                                                        title: "\(p.name) · \(p.pixels) px",
                                                        detail: PresetInfo.blurb(pixels: p.name))) {
                 self.dimensionMode = .maxLongSide
